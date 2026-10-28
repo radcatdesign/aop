@@ -67,7 +67,9 @@ export default defineConfig({
         'attached_assets',
       ),
     },
-    dedupe: ['react', 'react-dom'],
+    // api-client-react resolves its own react-query copy; two copies means two
+    // QueryClient contexts and a "No QueryClient set" crash. Force one.
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
   root: path.resolve(import.meta.dirname),
   build: {
