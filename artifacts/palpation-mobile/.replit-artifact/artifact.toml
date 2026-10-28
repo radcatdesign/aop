@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "Art of Palpation — Field"
+description = "Native mobile sample companion for practitioner visits, client lookup and demonstration assessments. Synthetic data only; not for patient use."
+version = "1.0.0"
+id = "artifacts/palpation-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/mobile/" ]
+localPort = 18744
+
+[services.development]
+run = "pnpm --filter @workspace/palpation-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/palpation-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/palpation-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "18744"
+BASE_PATH = "/mobile/"

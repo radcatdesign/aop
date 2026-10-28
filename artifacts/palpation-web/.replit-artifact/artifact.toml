@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Art of Palpation — Office"
+description = "Web practice-management sample workspace adapted from the supplied Art of Palpation source, preserving its synthetic-only safety boundary."
+version = "1.0.0"
+id = "artifacts/palpation-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25873
+
+[services.development]
+run = "pnpm --filter @workspace/palpation-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/palpation-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/palpation-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25873"
+BASE_PATH = "/"

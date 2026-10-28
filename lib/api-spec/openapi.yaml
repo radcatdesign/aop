@@ -1,0 +1,632 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: beta
+    description: Private beta access and activity
+  - name: beta-admin
+    description: Private beta administration
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /beta/requests:
+    post:
+      operationId: betaSubmitRequest
+      tags: [beta]
+      summary: Request beta access
+      description: Always returns the same generic confirmation, regardless of whether the email has already requested access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaAccessRequestSubmission"
+      responses:
+        "200":
+          description: Generic confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaMessage"
+  /beta/me:
+    get:
+      operationId: betaGetMe
+      tags: [beta]
+      summary: Get current beta user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current beta user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaMe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/acknowledge:
+    post:
+      operationId: betaAcknowledge
+      tags: [beta]
+      summary: Acknowledge beta access
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/feedback:
+    post:
+      operationId: betaSubmitFeedback
+      tags: [beta]
+      summary: Submit beta feedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaFeedbackSubmission"
+      responses:
+        "200":
+          description: Created feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      operationId: betaListMyFeedback
+      tags: [beta]
+      summary: List own feedback
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Feedback submitted by the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BetaFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/events:
+    post:
+      operationId: betaRecordEvent
+      tags: [beta]
+      summary: Record an approved user's beta event
+      description: Requires approved beta access.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaEventSubmission"
+      responses:
+        "200":
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/requests:
+    get:
+      operationId: betaAdminListRequests
+      tags: [beta-admin]
+      summary: List beta access requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Access requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BetaAccessRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/requests/{id}:
+    patch:
+      operationId: betaAdminUpdateRequest
+      tags: [beta-admin]
+      summary: Review a beta access request
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BetaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaAccessRequestReview"
+      responses:
+        "200":
+          description: Updated access request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaAccessRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/users:
+    get:
+      operationId: betaAdminListUsers
+      tags: [beta-admin]
+      summary: List beta users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Beta users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BetaUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/users/{id}:
+    patch:
+      operationId: betaAdminUpdateUser
+      tags: [beta-admin]
+      summary: Update a beta user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BetaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaUserUpdate"
+      responses:
+        "200":
+          description: Updated beta user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/feedback:
+    get:
+      operationId: betaAdminListFeedback
+      tags: [beta-admin]
+      summary: List all beta feedback
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All beta feedback
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BetaFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/feedback/{id}:
+    patch:
+      operationId: betaAdminUpdateFeedback
+      tags: [beta-admin]
+      summary: Review beta feedback
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BetaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaFeedbackUpdate"
+      responses:
+        "200":
+          description: Updated feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/admin/usage:
+    get:
+      operationId: betaAdminGetUsage
+      tags: [beta-admin]
+      summary: Get beta usage aggregates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [7, 30, 90]
+            default: 7
+      responses:
+        "200":
+          description: Usage aggregates for the requested period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaUsage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    BetaId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BetaError"
+    Forbidden:
+      description: Insufficient beta access
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BetaError"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    BetaError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    BetaMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+    BetaAccessRequestSubmission:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        practice:
+          type: string
+          minLength: 1
+          maxLength: 160
+        role:
+          type: string
+          minLength: 1
+          maxLength: 120
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 4000
+      required: [name, email, practice, role, reason]
+    BetaRequestStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    BetaUserRole:
+      type: string
+      enum: [admin, tester]
+    BetaUserStatus:
+      type: string
+      enum: [pending, approved, rejected, suspended]
+    BetaAccessRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        practice:
+          type: string
+        role:
+          type: string
+        reason:
+          type: string
+        status:
+          $ref: "#/components/schemas/BetaRequestStatus"
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, name, email, practice, role, reason, status, createdAt, reviewedAt]
+    BetaAccessRequestReview:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          $ref: "#/components/schemas/BetaRequestStatus"
+      required: [status]
+    BetaMe:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/BetaUserRole"
+        status:
+          $ref: "#/components/schemas/BetaUserStatus"
+        acknowledged:
+          type: boolean
+      required: [id, email, name, role, status, acknowledged]
+    BetaUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/BetaUserRole"
+        status:
+          $ref: "#/components/schemas/BetaUserStatus"
+        acknowledged:
+          type: boolean
+        lastSeenAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, name, role, status, acknowledged, lastSeenAt, createdAt]
+    BetaUserUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          $ref: "#/components/schemas/BetaUserRole"
+        status:
+          type: string
+          enum: [approved, suspended]
+    BetaFeedbackCategory:
+      type: string
+      enum: [bug, idea, other]
+    BetaPlatform:
+      type: string
+      enum: [web, mobile]
+    BetaScreen:
+      type: string
+      enum: [overview, schedule, clients, notes, billing, settings, other]
+    BetaFeedbackStatus:
+      type: string
+      enum: [new, in_review, resolved]
+    BetaFeedbackSubmission:
+      type: object
+      additionalProperties: false
+      properties:
+        category:
+          $ref: "#/components/schemas/BetaFeedbackCategory"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+        screen:
+          $ref: "#/components/schemas/BetaScreen"
+      required: [category, message, platform, screen]
+    BetaFeedback:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        userEmail:
+          type: string
+        category:
+          $ref: "#/components/schemas/BetaFeedbackCategory"
+        message:
+          type: string
+        rating:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 5
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+        screen:
+          $ref: "#/components/schemas/BetaScreen"
+        status:
+          $ref: "#/components/schemas/BetaFeedbackStatus"
+        adminNote:
+          type: [string, "null"]
+          maxLength: 4000
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, userName, userEmail, category, message, rating, platform, screen, status, adminNote, createdAt]
+    BetaFeedbackUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          $ref: "#/components/schemas/BetaFeedbackStatus"
+        adminNote:
+          type: string
+          maxLength: 4000
+    BetaEvent:
+      type: string
+      enum: [session_start, screen_view, assessment_saved, checkout_demo]
+    BetaEventSubmission:
+      type: object
+      additionalProperties: false
+      properties:
+        event:
+          $ref: "#/components/schemas/BetaEvent"
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+        screen:
+          $ref: "#/components/schemas/BetaScreen"
+      required: [event, platform, screen]
+    BetaUsageTotals:
+      type: object
+      properties:
+        requests:
+          type: integer
+          minimum: 0
+        pendingRequests:
+          type: integer
+          minimum: 0
+        approvedUsers:
+          type: integer
+          minimum: 0
+        activeUsers:
+          type: integer
+          minimum: 0
+        sessions:
+          type: integer
+          minimum: 0
+        feedback:
+          type: integer
+          minimum: 0
+      required: [requests, pendingRequests, approvedUsers, activeUsers, sessions, feedback]
+    BetaUsageDaily:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        activeUsers:
+          type: integer
+          minimum: 0
+        events:
+          type: integer
+          minimum: 0
+      required: [date, activeUsers, events]
+    BetaUsageFeature:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/BetaEvent"
+        count:
+          type: integer
+          minimum: 0
+      required: [event, count]
+    BetaUsagePlatform:
+      type: object
+      properties:
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+        count:
+          type: integer
+          minimum: 0
+      required: [platform, count]
+    BetaUsage:
+      type: object
+      properties:
+        totals:
+          $ref: "#/components/schemas/BetaUsageTotals"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetaUsageDaily"
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetaUsageFeature"
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetaUsagePlatform"
+      required: [totals, daily, features, platforms]
+
