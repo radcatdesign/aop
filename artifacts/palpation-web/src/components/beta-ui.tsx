@@ -38,7 +38,11 @@ export function Brand({ href = "/", sub }: { href?: string; sub?: string }) {
     <Link href={href} className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="link-home">
       <BrandMark />
       <span className="leading-tight">
-        <span className="block text-[15px] font-semibold tracking-tight text-foreground">Art of Palpation</span>
+        <span className="flex items-center gap-1.5 text-[15px] font-semibold tracking-tight text-foreground">
+          Art of Palpation
+          {/* Product name isn't final yet. */}
+          <span className="rounded-[4px] border border-border px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-[0.12em] text-muted-foreground" title="Name to be decided">TBD</span>
+        </span>
         {sub && <span className="block text-[9.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{sub}</span>}
       </span>
     </Link>
