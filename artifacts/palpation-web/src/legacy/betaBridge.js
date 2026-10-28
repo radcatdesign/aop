@@ -3,4 +3,7 @@ let listener = null;
 export function setBetaListener(fn) { listener = fn; return () => { if (listener === fn) listener = null; }; }
 const SCREEN = { today: 'overview', reports: 'overview', schedule: 'schedule', clients: 'clients', soap: 'notes', charting: 'notes', payments: 'billing', invoicing: 'billing', payroll: 'billing', settings: 'settings' };
 export function screenFor(view) { return SCREEN[view] || 'other'; }
-export function emitBeta(event, view) { try { if (listener) listener(event, screenFor(view)); } catch { /* never break the demo */ } }
+// Page ids are fixed nav ids (never route params or record data).
+const PAGES = new Set(['today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk']);
+export function pageFor(view) { return PAGES.has(view) ? view : 'other'; }
+export function emitBeta(event, view) { try { if (listener) listener(event, screenFor(view), pageFor(view)); } catch { /* never break the demo */ } }

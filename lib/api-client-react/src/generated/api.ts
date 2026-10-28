@@ -30,6 +30,9 @@ import type {
   BetaFeedbackUpdate,
   BetaMe,
   BetaMessage,
+  BetaSession,
+  BetaSessionEnd,
+  BetaSessionStart,
   BetaUsage,
   BetaUser,
   BetaUserUpdate,
@@ -547,6 +550,262 @@ export function useBetaListMyFeedback<TData = Awaited<ReturnType<typeof betaList
 
 
 
+
+export const getBetaStartSessionUrl = () => {
+
+
+
+
+  return `/api/beta/sessions`
+}
+
+/**
+ * Requires approved, acknowledged beta access. Times are recorded server-side.
+ * @summary Start a sample workspace session
+ */
+export const betaStartSession = async (betaSessionStart: BetaSessionStart, options?: Parameters<typeof customFetch>[1]): Promise<BetaSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BetaSession>(getBetaStartSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(betaSessionStart)
+  }
+);}
+
+
+
+
+
+export const getBetaStartSessionMutationKey = () => ['betaStartSession'] as const;
+
+export const getBetaStartSessionMutationOptions = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof betaStartSession>>, TError,BetaStartSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof betaStartSession>>, TError,BetaStartSessionMutationVariables, TContext> => {
+
+const mutationKey = getBetaStartSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof betaStartSession>>, BetaStartSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  betaStartSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BetaStartSessionMutationResult = NonNullable<Awaited<ReturnType<typeof betaStartSession>>>
+    export type BetaStartSessionMutationBody = BodyType<BetaSessionStart>
+    export type BetaStartSessionMutationError = ErrorType<UnauthorizedResponse | ForbiddenResponse>
+    export type BetaStartSessionMutationVariables = {data: BodyType<BetaSessionStart>}
+
+    /**
+ * @summary Start a sample workspace session
+ */
+export const useBetaStartSession = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof betaStartSession>>, TError,BetaStartSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof betaStartSession>>,
+        TError,
+        BetaStartSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBetaStartSessionMutationOptions(options));
+    }
+
+export const getBetaListMySessionsUrl = () => {
+
+
+
+
+  return `/api/beta/sessions`
+}
+
+/**
+ * @summary List own sessions with their length and the feedback sent during each
+ */
+export const betaListMySessions = async ( options?: Parameters<typeof customFetch>[1]): Promise<BetaSession[]> => {
+
+  return customFetch<BetaSession[]>(getBetaListMySessionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBetaListMySessionsQueryKey = () => {
+    return [
+    `/api/beta/sessions`
+    ] as const;
+    }
+
+
+export const getBetaListMySessionsQueryOptions = <TData = Awaited<ReturnType<typeof betaListMySessions>>, TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof betaListMySessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBetaListMySessionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof betaListMySessions>>> = ({ signal }) => betaListMySessions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof betaListMySessions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type BetaListMySessionsQueryResult = NonNullable<Awaited<ReturnType<typeof betaListMySessions>>>
+export type BetaListMySessionsQueryError = ErrorType<UnauthorizedResponse | ForbiddenResponse>
+
+
+/**
+ * @summary List own sessions with their length and the feedback sent during each
+ */
+
+export function useBetaListMySessions<TData = Awaited<ReturnType<typeof betaListMySessions>>, TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof betaListMySessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getBetaListMySessionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getBetaEndSessionUrl = (id: string,) => {
+
+
+
+
+  return `/api/beta/sessions/${id}/end`
+}
+
+/**
+ * Idempotent. The first call sets the end time; later calls return the session unchanged.
+ * @summary End an open session
+ */
+export const betaEndSession = async (id: string,
+    betaSessionEnd: BetaSessionEnd, options?: Parameters<typeof customFetch>[1]): Promise<BetaSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BetaSession>(getBetaEndSessionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(betaSessionEnd)
+  }
+);}
+
+
+
+
+
+export const getBetaEndSessionMutationKey = () => ['betaEndSession'] as const;
+
+export const getBetaEndSessionMutationOptions = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof betaEndSession>>, TError,BetaEndSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof betaEndSession>>, TError,BetaEndSessionMutationVariables, TContext> => {
+
+const mutationKey = getBetaEndSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof betaEndSession>>, BetaEndSessionMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  betaEndSession(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BetaEndSessionMutationResult = NonNullable<Awaited<ReturnType<typeof betaEndSession>>>
+    export type BetaEndSessionMutationBody = BodyType<BetaSessionEnd>
+    export type BetaEndSessionMutationError = ErrorType<UnauthorizedResponse | ForbiddenResponse>
+    export type BetaEndSessionMutationVariables = {id: string;data: BodyType<BetaSessionEnd>}
+
+    /**
+ * @summary End an open session
+ */
+export const useBetaEndSession = <TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof betaEndSession>>, TError,BetaEndSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof betaEndSession>>,
+        TError,
+        BetaEndSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBetaEndSessionMutationOptions(options));
+    }
 
 export const getBetaRecordEventUrl = () => {
 

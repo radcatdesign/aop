@@ -77,6 +77,8 @@ export const betaSubmitFeedbackBodyMessageMax = 4000;
 
 export const betaSubmitFeedbackBodyRatingMax = 5;
 
+export const betaSubmitFeedbackBodyAreaDetailMax = 160;
+
 
 
 export const BetaSubmitFeedbackBody = zod.object({
@@ -84,7 +86,11 @@ export const BetaSubmitFeedbackBody = zod.object({
   "message": zod.string().min(1).max(betaSubmitFeedbackBodyMessageMax),
   "rating": zod.number().int().min(1).max(betaSubmitFeedbackBodyRatingMax).optional(),
   "platform": zod.enum(['web', 'mobile']),
-  "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other'])
+  "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
+  "sessionId": zod.string().uuid().optional(),
+  "page": zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).optional().describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),
+  "area": zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).optional().describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),
+  "areaDetail": zod.string().max(betaSubmitFeedbackBodyAreaDetailMax).optional()
 })
 
 export const betaSubmitFeedbackResponseRatingMax = 5;
@@ -105,6 +111,10 @@ export const BetaSubmitFeedbackResponse = zod.object({
   "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
   "status": zod.enum(['new', 'in_review', 'resolved']),
   "adminNote": zod.string().max(betaSubmitFeedbackResponseAdminNoteMax).nullable(),
+  "sessionId": zod.string().nullish(),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "areaDetail": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -130,9 +140,103 @@ export const BetaListMyFeedbackResponseItem = zod.object({
   "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
   "status": zod.enum(['new', 'in_review', 'resolved']),
   "adminNote": zod.string().max(betaListMyFeedbackResponseAdminNoteMax).nullable(),
+  "sessionId": zod.string().nullish(),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "areaDetail": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const BetaListMyFeedbackResponse = zod.array(BetaListMyFeedbackResponseItem)
+
+
+/**
+ * Requires approved, acknowledged beta access. Times are recorded server-side.
+ * @summary Start a sample workspace session
+ */
+export const BetaStartSessionBody = zod.object({
+  "platform": zod.enum(['web', 'mobile'])
+})
+
+export const BetaStartSessionResponse = zod.object({
+  "id": zod.string(),
+  "platform": zod.enum(['web', 'mobile']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
+  "durationSeconds": zod.number().int().nullable().describe('Null while the session is open, or if it was never closed.'),
+  "feedback": zod.array(zod.object({
+  "id": zod.string(),
+  "category": zod.enum(['bug', 'idea', 'other']),
+  "message": zod.string(),
+  "rating": zod.number().int().nullable(),
+  "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "areaDetail": zod.string().nullable(),
+  "status": zod.enum(['new', 'in_review', 'resolved']),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary List own sessions with their length and the feedback sent during each
+ */
+export const BetaListMySessionsResponseItem = zod.object({
+  "id": zod.string(),
+  "platform": zod.enum(['web', 'mobile']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
+  "durationSeconds": zod.number().int().nullable().describe('Null while the session is open, or if it was never closed.'),
+  "feedback": zod.array(zod.object({
+  "id": zod.string(),
+  "category": zod.enum(['bug', 'idea', 'other']),
+  "message": zod.string(),
+  "rating": zod.number().int().nullable(),
+  "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "areaDetail": zod.string().nullable(),
+  "status": zod.enum(['new', 'in_review', 'resolved']),
+  "createdAt": zod.coerce.date()
+}))
+})
+export const BetaListMySessionsResponse = zod.array(BetaListMySessionsResponseItem)
+
+
+/**
+ * Idempotent. The first call sets the end time; later calls return the session unchanged.
+ * @summary End an open session
+ */
+export const BetaEndSessionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const BetaEndSessionBody = zod.object({
+  "reason": zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away')
+})
+
+export const BetaEndSessionResponse = zod.object({
+  "id": zod.string(),
+  "platform": zod.enum(['web', 'mobile']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
+  "durationSeconds": zod.number().int().nullable().describe('Null while the session is open, or if it was never closed.'),
+  "feedback": zod.array(zod.object({
+  "id": zod.string(),
+  "category": zod.enum(['bug', 'idea', 'other']),
+  "message": zod.string(),
+  "rating": zod.number().int().nullable(),
+  "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]),
+  "areaDetail": zod.string().nullable(),
+  "status": zod.enum(['new', 'in_review', 'resolved']),
+  "createdAt": zod.coerce.date()
+}))
+})
 
 
 /**
@@ -254,6 +358,10 @@ export const BetaAdminListFeedbackResponseItem = zod.object({
   "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
   "status": zod.enum(['new', 'in_review', 'resolved']),
   "adminNote": zod.string().max(betaAdminListFeedbackResponseAdminNoteMax).nullable(),
+  "sessionId": zod.string().nullish(),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "areaDetail": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const BetaAdminListFeedbackResponse = zod.array(BetaAdminListFeedbackResponseItem)
@@ -293,6 +401,10 @@ export const BetaAdminUpdateFeedbackResponse = zod.object({
   "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other']),
   "status": zod.enum(['new', 'in_review', 'resolved']),
   "adminNote": zod.string().max(betaAdminUpdateFeedbackResponseAdminNoteMax).nullable(),
+  "sessionId": zod.string().nullish(),
+  "page": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "area": zod.union([zod.enum(['portal', 'today', 'reports', 'schedule', 'clients', 'messages', 'soap', 'charting', 'documents', 'payments', 'invoicing', 'payroll', 'academy', 'settings', 'flows', 'kiosk', 'other']).describe('A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.'),zod.null()]).optional(),
+  "areaDetail": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
 

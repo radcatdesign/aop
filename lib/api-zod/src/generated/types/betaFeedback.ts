@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BetaArea } from './betaArea';
 import type { BetaFeedbackCategory } from './betaFeedbackCategory';
 import type { BetaFeedbackStatus } from './betaFeedbackStatus';
 import type { BetaPlatform } from './betaPlatform';
@@ -31,5 +32,11 @@ export interface BetaFeedback {
      * @nullable
      */
   adminNote: string | null;
+  /** @nullable */
+  sessionId?: string | null;
+  page?: BetaArea | null;
+  area?: BetaArea | null;
+  /** @nullable */
+  areaDetail?: string | null;
   createdAt: Date;
 }

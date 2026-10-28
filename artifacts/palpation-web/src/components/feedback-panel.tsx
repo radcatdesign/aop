@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageSquareText, ShieldAlert, Star } from "lucide-react";
+import { MapPin, MessageSquareText, ShieldAlert, Star } from "lucide-react";
 import {
   getBetaListMyFeedbackQueryKey,
+  getBetaListMySessionsQueryKey,
   useBetaListMyFeedback,
   useBetaSubmitFeedback,
+  type BetaArea,
   type BetaFeedbackCategory,
   type BetaScreen,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { AREA_GROUPS, areaLabel } from "@/lib/feedback-areas";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState, ErrorState, StatusPill, errorMessage, formatDate } from "@/components/beta-ui";
 
@@ -20,8 +24,14 @@ const CATEGORIES: { value: BetaFeedbackCategory; label: string; hint: string }[]
   { value: "other", label: "Something else", hint: "Other" },
 ];
 
-export function FeedbackForm({ screen, onDone, flowContext }: {
+export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flowContext }: {
   screen: BetaScreen;
+  /** Where the tester is right now. Recorded automatically. */
+  page: BetaArea;
+  /** What the feedback is about, pre-selected. Defaults to the current page. */
+  defaultArea?: BetaArea;
+  /** Open workspace session, so the note shows up in that session's log. */
+  sessionId?: string | null;
   onDone?: () => void;
   flowContext?: { label: string; reference: string; kind: "issue" | "feedback" };
 }) {
@@ -30,6 +40,8 @@ export function FeedbackForm({ screen, onDone, flowContext }: {
   const [category, setCategory] = useState<BetaFeedbackCategory>(flowContext?.kind === "issue" ? "bug" : "idea");
   const [rating, setRating] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [area, setArea] = useState<BetaArea>(defaultArea ?? page);
+  const [areaDetail, setAreaDetail] = useState("");
   const [touched, setTouched] = useState(false);
   const submit = useBetaSubmitFeedback();
   const trimmed = message.trim();
@@ -41,11 +53,19 @@ export function FeedbackForm({ screen, onDone, flowContext }: {
     setTouched(true);
     if (invalid) return;
     submit.mutate(
-      { data: { category, message: fullMessage, platform: "web", screen, ...(rating ? { rating } : {}) } },
+      {
+        data: {
+          category, message: fullMessage, platform: "web", screen, page, area,
+          ...(areaDetail.trim() ? { areaDetail: areaDetail.trim() } : {}),
+          ...(sessionId ? { sessionId } : {}),
+          ...(rating ? { rating } : {}),
+        },
+      },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getBetaListMyFeedbackQueryKey() });
-          setMessage(""); setRating(null); setTouched(false);
+          qc.invalidateQueries({ queryKey: getBetaListMySessionsQueryKey() });
+          setMessage(""); setRating(null); setAreaDetail(""); setTouched(false);
           toast({ title: "Feedback sent", description: "Thank you. You can follow its status below." });
           onDone?.();
         },
@@ -81,6 +101,37 @@ export function FeedbackForm({ screen, onDone, flowContext }: {
           ))}
         </div>
       </fieldset>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_1.2fr]">
+        <div>
+          <Label htmlFor="fb-area" className="text-[12px] font-medium text-muted-foreground">Area</Label>
+          {/* Native select: it sits inside a high z-index dialog where portaled menus get buried. */}
+          <select
+            id="fb-area" value={area} onChange={(e) => setArea(e.target.value as BetaArea)}
+            className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-3 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="select-feedback-area"
+          >
+            {AREA_GROUPS.map((g) => (
+              <optgroup key={g.group} label={g.group}>
+                {g.areas.map((a) => <option key={a.id} value={a.id}>{a.label}{a.id === page && page !== "portal" ? " (this page)" : ""}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label htmlFor="fb-spot" className="text-[12px] font-medium text-muted-foreground">Specific spot <span className="font-normal">(optional)</span></Label>
+          <Input
+            id="fb-spot" value={areaDetail} maxLength={160} onChange={(e) => setAreaDetail(e.target.value)}
+            className="mt-2 h-9 text-[13px]" placeholder="e.g. room dropdown in the booking drawer"
+            data-testid="input-feedback-spot"
+          />
+        </div>
+      </div>
+      {page !== "portal" && (
+        <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] text-muted-foreground" data-testid="text-feedback-page">
+          <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Sent from {areaLabel(page) ?? "the workspace"}. We record the page, never what's on it.
+        </p>
+      )}
 
       <fieldset>
         <legend className="mb-2 text-[12px] font-medium text-muted-foreground">How did it feel? <span className="font-normal">(optional)</span></legend>
@@ -139,7 +190,7 @@ export function MyFeedbackList() {
         <li key={f.id} className="px-4 py-3.5" data-testid={`row-my-feedback-${f.id}`}>
           <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
             <span className="font-semibold uppercase tracking-wider">{f.category}</span>
-            <span aria-hidden="true">·</span><span>{f.screen}</span>
+            <span aria-hidden="true">·</span><span>{areaLabel(f.area) ?? f.screen}{f.areaDetail ? ` · ${f.areaDetail}` : ""}</span>
             <span aria-hidden="true">·</span><span>{formatDate(f.createdAt)}</span>
             <span className="ml-auto"><StatusPill value={f.status} testId={`status-my-feedback-${f.id}`} /></span>
           </div>

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BetaArea } from './betaArea';
 import type { BetaFeedbackCategory } from './betaFeedbackCategory';
 import type { BetaPlatform } from './betaPlatform';
 import type { BetaScreen } from './betaScreen';
@@ -23,4 +24,9 @@ export interface BetaFeedbackSubmission {
   rating?: number;
   platform: BetaPlatform;
   screen: BetaScreen;
+  sessionId?: string;
+  page?: BetaArea;
+  area?: BetaArea;
+  /** @maxLength 160 */
+  areaDetail?: string;
 }

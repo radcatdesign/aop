@@ -1,3 +1,4 @@
+import { areaLabel } from "@/lib/feedback-areas";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, Redirect } from "wouter";
 import { useClerk } from "@clerk/react";
@@ -234,7 +235,7 @@ function FeedbackTab() {
   const [cat, setCat] = useState<BetaFeedback["category"] | "all">("all");
   const [status, setStatus] = useState<BetaFeedbackStatus | "all">("all");
   const [openId, setOpenId] = useState<string | null>(null);
-  const rows = useMemo(() => (q.data ?? []).filter((f) => (cat === "all" || f.category === cat) && (status === "all" || f.status === status) && match(search, f.message, f.userName, f.userEmail)), [q.data, cat, status, search]);
+  const rows = useMemo(() => (q.data ?? []).filter((f) => (cat === "all" || f.category === cat) && (status === "all" || f.status === status) && match(search, f.message, f.userName, f.userEmail, areaLabel(f.area) ?? "", f.areaDetail ?? "")), [q.data, cat, status, search]);
   const open = (q.data ?? []).find((f) => f.id === openId) ?? null;
 
   return (
@@ -251,7 +252,7 @@ function FeedbackTab() {
             <li key={f.id}>
               <button type="button" onClick={() => setOpenId(f.id)} className="w-full px-4 py-3.5 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" data-testid={`row-feedback-${f.id}`}>
                 <span className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
-                  <span className="font-semibold uppercase tracking-wider">{f.category}</span><span>·</span><span>{f.userName}</span><span>·</span><span>{f.screen} / {f.platform}</span>{f.rating && <><span>·</span><span>{f.rating}/5</span></>}<span>·</span><span>{formatDate(f.createdAt)}</span>
+                  <span className="font-semibold uppercase tracking-wider">{f.category}</span><span>·</span><span>{f.userName}</span><span>·</span><span>{areaLabel(f.area) ?? f.screen}{f.areaDetail ? ` · ${f.areaDetail}` : ""} / {f.platform}</span>{f.rating && <><span>·</span><span>{f.rating}/5</span></>}<span>·</span><span>{formatDate(f.createdAt)}</span>
                   <span className="ml-auto"><StatusPill value={f.status} /></span>
                 </span>
                 <span className="mt-1 line-clamp-2 block text-[13px] text-foreground">{f.message}</span>
@@ -281,8 +282,14 @@ function FeedbackDetail({ f }: { f: BetaFeedback }) {
   const dirty = status !== f.status || note !== (f.adminNote ?? "");
   return (
     <>
-      <SheetHeader><SheetTitle className="capitalize">{f.category} from {f.userName}</SheetTitle><SheetDescription>{f.userEmail} · {f.screen} / {f.platform} · {formatDate(f.createdAt)}{f.rating ? ` · ${f.rating}/5` : ""}</SheetDescription></SheetHeader>
-      <p className="mt-6 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-[13.5px] leading-relaxed">{f.message}</p>
+      <SheetHeader><SheetTitle className="capitalize">{f.category} from {f.userName}</SheetTitle><SheetDescription>{f.userEmail} · {f.platform} · {formatDate(f.createdAt)}{f.rating ? ` · ${f.rating}/5` : ""}</SheetDescription></SheetHeader>
+      <dl className="mt-6 grid grid-cols-3 gap-3 text-[12.5px]">
+        {[["Area", areaLabel(f.area) ?? f.screen], ["Sent from", areaLabel(f.page) ?? "—"], ["Session", f.sessionId ? "During a session" : "Outside a session"]].map(([k, v]) => (
+          <div key={k}><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
+        ))}
+        {f.areaDetail && <div className="col-span-3"><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Specific spot</dt><dd className="mt-0.5">{f.areaDetail}</dd></div>}
+      </dl>
+      <p className="mt-4 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-[13.5px] leading-relaxed">{f.message}</p>
       <div className="mt-6 space-y-4">
         <div>
           <label className="text-[12px] font-medium text-muted-foreground" htmlFor="fb-status">Status</label>

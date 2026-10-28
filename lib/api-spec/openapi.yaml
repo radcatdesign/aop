@@ -126,6 +126,77 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /beta/sessions:
+    post:
+      operationId: betaStartSession
+      tags: [beta]
+      summary: Start a sample workspace session
+      description: Requires approved, acknowledged beta access. Times are recorded server-side.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaSessionStart"
+      responses:
+        "200":
+          description: Started session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      operationId: betaListMySessions
+      tags: [beta]
+      summary: List own sessions with their length and the feedback sent during each
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Most recent sessions first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BetaSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /beta/sessions/{id}/end:
+    post:
+      operationId: betaEndSession
+      tags: [beta]
+      summary: End an open session
+      description: Idempotent. The first call sets the end time; later calls return the session unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BetaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetaSessionEnd"
+      responses:
+        "200":
+          description: Ended session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetaSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /beta/events:
     post:
       operationId: betaRecordEvent
@@ -481,6 +552,82 @@ components:
     BetaFeedbackCategory:
       type: string
       enum: [bug, idea, other]
+    BetaArea:
+      type: string
+      description: A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.
+      enum: [portal, today, reports, schedule, clients, messages, soap, charting, documents, payments, invoicing, payroll, academy, settings, flows, kiosk, other]
+    BetaSessionEndReason:
+      type: string
+      description: ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away
+      enum: [ended, timeout, left]
+    BetaSessionStart:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+      required: [platform]
+    BetaSessionEnd:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          $ref: "#/components/schemas/BetaSessionEndReason"
+      required: [reason]
+    BetaSessionFeedback:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          $ref: "#/components/schemas/BetaFeedbackCategory"
+        message:
+          type: string
+        rating:
+          type: [integer, "null"]
+        screen:
+          $ref: "#/components/schemas/BetaScreen"
+        page:
+          oneOf:
+            - $ref: "#/components/schemas/BetaArea"
+            - type: "null"
+        area:
+          oneOf:
+            - $ref: "#/components/schemas/BetaArea"
+            - type: "null"
+        areaDetail:
+          type: [string, "null"]
+        status:
+          $ref: "#/components/schemas/BetaFeedbackStatus"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, category, message, rating, screen, page, area, areaDetail, status, createdAt]
+    BetaSession:
+      type: object
+      properties:
+        id:
+          type: string
+        platform:
+          $ref: "#/components/schemas/BetaPlatform"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: [string, "null"]
+          format: date-time
+        endReason:
+          oneOf:
+            - $ref: "#/components/schemas/BetaSessionEndReason"
+            - type: "null"
+        durationSeconds:
+          type: [integer, "null"]
+          description: Null while the session is open, or if it was never closed.
+        feedback:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetaSessionFeedback"
+      required: [id, platform, startedAt, endedAt, endReason, durationSeconds, feedback]
     BetaPlatform:
       type: string
       enum: [web, mobile]
@@ -508,6 +655,16 @@ components:
           $ref: "#/components/schemas/BetaPlatform"
         screen:
           $ref: "#/components/schemas/BetaScreen"
+        sessionId:
+          type: string
+          format: uuid
+        page:
+          $ref: "#/components/schemas/BetaArea"
+        area:
+          $ref: "#/components/schemas/BetaArea"
+        areaDetail:
+          type: string
+          maxLength: 160
       required: [category, message, platform, screen]
     BetaFeedback:
       type: object
@@ -537,6 +694,18 @@ components:
         adminNote:
           type: [string, "null"]
           maxLength: 4000
+        sessionId:
+          type: [string, "null"]
+        page:
+          oneOf:
+            - $ref: "#/components/schemas/BetaArea"
+            - type: "null"
+        area:
+          oneOf:
+            - $ref: "#/components/schemas/BetaArea"
+            - type: "null"
+        areaDetail:
+          type: [string, "null"]
         createdAt:
           type: string
           format: date-time

@@ -135,6 +135,44 @@ export const BetaFeedbackCategory = {
   other: 'other',
 } as const;
 
+/**
+ * A workspace page id (portal = the beta home outside the workspace). Enum only, so no free text is captured automatically.
+ */
+export type BetaArea = typeof BetaArea[keyof typeof BetaArea];
+
+
+export const BetaArea = {
+  portal: 'portal',
+  today: 'today',
+  reports: 'reports',
+  schedule: 'schedule',
+  clients: 'clients',
+  messages: 'messages',
+  soap: 'soap',
+  charting: 'charting',
+  documents: 'documents',
+  payments: 'payments',
+  invoicing: 'invoicing',
+  payroll: 'payroll',
+  academy: 'academy',
+  settings: 'settings',
+  flows: 'flows',
+  kiosk: 'kiosk',
+  other: 'other',
+} as const;
+
+/**
+ * ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away
+ */
+export type BetaSessionEndReason = typeof BetaSessionEndReason[keyof typeof BetaSessionEndReason];
+
+
+export const BetaSessionEndReason = {
+  ended: 'ended',
+  timeout: 'timeout',
+  left: 'left',
+} as const;
+
 export type BetaPlatform = typeof BetaPlatform[keyof typeof BetaPlatform];
 
 
@@ -142,6 +180,14 @@ export const BetaPlatform = {
   web: 'web',
   mobile: 'mobile',
 } as const;
+
+export interface BetaSessionStart {
+  platform: BetaPlatform;
+}
+
+export interface BetaSessionEnd {
+  reason: BetaSessionEndReason;
+}
 
 export type BetaScreen = typeof BetaScreen[keyof typeof BetaScreen];
 
@@ -165,6 +211,36 @@ export const BetaFeedbackStatus = {
   resolved: 'resolved',
 } as const;
 
+export interface BetaSessionFeedback {
+  id: string;
+  category: BetaFeedbackCategory;
+  message: string;
+  /** @nullable */
+  rating: number | null;
+  screen: BetaScreen;
+  page: BetaArea | null;
+  area: BetaArea | null;
+  /** @nullable */
+  areaDetail: string | null;
+  status: BetaFeedbackStatus;
+  createdAt: string;
+}
+
+export interface BetaSession {
+  id: string;
+  platform: BetaPlatform;
+  startedAt: string;
+  /** @nullable */
+  endedAt: string | null;
+  endReason: BetaSessionEndReason | null;
+  /**
+     * Null while the session is open, or if it was never closed.
+     * @nullable
+     */
+  durationSeconds: number | null;
+  feedback: BetaSessionFeedback[];
+}
+
 export interface BetaFeedbackSubmission {
   category: BetaFeedbackCategory;
   /**
@@ -179,6 +255,11 @@ export interface BetaFeedbackSubmission {
   rating?: number;
   platform: BetaPlatform;
   screen: BetaScreen;
+  sessionId?: string;
+  page?: BetaArea;
+  area?: BetaArea;
+  /** @maxLength 160 */
+  areaDetail?: string;
 }
 
 export interface BetaFeedback {
@@ -202,6 +283,12 @@ export interface BetaFeedback {
      * @nullable
      */
   adminNote: string | null;
+  /** @nullable */
+  sessionId?: string | null;
+  page?: BetaArea | null;
+  area?: BetaArea | null;
+  /** @nullable */
+  areaDetail?: string | null;
   createdAt: string;
 }
 

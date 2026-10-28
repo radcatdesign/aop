@@ -1,13 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
-  BetaSubmitRequestBody, BetaSubmitFeedbackBody, BetaRecordEventBody,
+  BetaSubmitRequestBody, BetaSubmitFeedbackBody, BetaRecordEventBody, BetaStartSessionBody, BetaEndSessionBody,
   BetaAdminUpdateRequestBody, BetaAdminUpdateUserBody, BetaAdminUpdateFeedbackBody,
   BetaAdminGetUsageQueryParams,
 } from "@workspace/api-zod";
-import { db, pool, betaRequests, betaUsers, betaFeedback } from "@workspace/db";
+import { db, pool, betaRequests, betaUsers, betaFeedback, betaSessions } from "@workspace/db";
 import { z } from "zod";
 import { initialBetaAccess, canChangeAdmin } from "../lib/beta-policy";
 import { originAccess } from "../lib/origin";
@@ -35,6 +35,17 @@ const wireRequest = (row: typeof betaRequests.$inferSelect) => ({ ...row, create
 const wireUser = (row: User) => ({
   id: row.id, email: row.email, name: row.name, role: row.role, status: row.status,
   acknowledged: row.acknowledged, createdAt: row.createdAt.toISOString(), lastSeenAt: iso(row.lastSeenAt),
+});
+type SessionRow = typeof betaSessions.$inferSelect;
+type FeedbackRow = typeof betaFeedback.$inferSelect;
+// Length comes from server timestamps only; null until the session is closed.
+const wireSession = (s: SessionRow, feedback: FeedbackRow[]) => ({
+  id: s.id, platform: s.platform, startedAt: s.startedAt.toISOString(), endedAt: iso(s.endedAt), endReason: s.endReason ?? null,
+  durationSeconds: s.endedAt ? Math.max(0, Math.round((s.endedAt.getTime() - s.startedAt.getTime()) / 1000)) : null,
+  feedback: feedback.map((f) => ({
+    id: f.id, category: f.category, message: f.message, rating: f.rating, screen: f.screen,
+    page: f.page, area: f.area, areaDetail: f.areaDetail, status: f.status, createdAt: f.createdAt.toISOString(),
+  })),
 });
 const wireFeedback = (row: typeof betaFeedback.$inferSelect, user: User, admin = false) => ({
   ...row, userName: user.name, userEmail: user.email,
@@ -153,10 +164,15 @@ router.post("/feedback", wrap(async (req, res) => {
   const body = parse(BetaSubmitFeedbackBody.strict(), req.body);
   if (!body.message.trim()) throw new HttpError(400, "Invalid input");
   // Re-check approval at write time to prevent a concurrent revocation.
+  // A session link is kept only if the session is the caller's and still open.
   const created = await pool.query<{ id: string }>(`
-    INSERT INTO beta_feedback (user_id, category, message, rating, platform, screen)
-    SELECT id, $2, $3, $4, $5, $6 FROM beta_users WHERE id = $1 AND status = 'approved'
-    RETURNING id`, [user.id, body.category, body.message.trim(), body.rating ?? null, body.platform, body.screen]);
+    INSERT INTO beta_feedback (user_id, category, message, rating, platform, screen, session_id, page, area, area_detail)
+    SELECT u.id, $2, $3, $4, $5, $6,
+      (SELECT s.id FROM beta_sessions s WHERE s.id = $7::uuid AND s.user_id = u.id AND s.ended_at IS NULL),
+      $8, $9, $10
+    FROM beta_users u WHERE u.id = $1 AND u.status = 'approved'
+    RETURNING id`, [user.id, body.category, body.message.trim(), body.rating ?? null, body.platform, body.screen, body.sessionId ?? null,
+      body.page ?? null, body.area ?? body.page ?? null, body.areaDetail?.trim() || null]);
   if (!created.rows.length) throw new HttpError(403, "Beta access required");
   const [row] = await db.select().from(betaFeedback).where(eq(betaFeedback.id, created.rows[0].id));
   res.json(wireFeedback(row, user));
@@ -165,6 +181,39 @@ router.get("/feedback", wrap(async (req, res) => {
   const user = await approved(req);
   const rows = await db.select().from(betaFeedback).where(eq(betaFeedback.userId, user.id)).orderBy(desc(betaFeedback.createdAt)).limit(200);
   res.json(rows.map(row => wireFeedback(row, user)));
+}));
+router.post("/sessions", wrap(async (req, res) => {
+  const user = await approved(req);
+  if (!user.acknowledged) throw new HttpError(403, "Beta access required");
+  await limit("session", user.id, 30, 3600000);
+  const body = parse(BetaStartSessionBody.strict(), req.body);
+  const [session] = await db.insert(betaSessions).values({ userId: user.id, platform: body.platform }).returning();
+  res.json(wireSession(session, []));
+}));
+router.post("/sessions/:id/end", wrap(async (req, res) => {
+  // current(), not approved(): a tester whose access changed mid-session can still close it.
+  const user = await current(req);
+  const sessionId = id(req);
+  const body = parse(BetaEndSessionBody.strict(), req.body);
+  // Sessions are capped at 30 minutes, so a late or retried close can't stretch the length.
+  await pool.query(`UPDATE beta_sessions
+    SET ended_at = LEAST(now(), started_at + interval '30 minutes 15 seconds'), end_reason = $3
+    WHERE id = $1 AND user_id = $2 AND ended_at IS NULL`, [sessionId, user.id, body.reason]);
+  const [session] = await db.select().from(betaSessions).where(and(eq(betaSessions.id, sessionId), eq(betaSessions.userId, user.id)));
+  if (!session) throw new HttpError(404, "Session not found");
+  const feedback = await db.select().from(betaFeedback)
+    .where(and(eq(betaFeedback.userId, user.id), eq(betaFeedback.sessionId, session.id))).orderBy(asc(betaFeedback.createdAt));
+  res.json(wireSession(session, feedback));
+}));
+router.get("/sessions", wrap(async (req, res) => {
+  const user = await approved(req);
+  const sessions = await db.select().from(betaSessions).where(eq(betaSessions.userId, user.id)).orderBy(desc(betaSessions.startedAt)).limit(50);
+  const feedback = sessions.length
+    ? await db.select().from(betaFeedback)
+      .where(and(eq(betaFeedback.userId, user.id), inArray(betaFeedback.sessionId, sessions.map((s) => s.id))))
+      .orderBy(asc(betaFeedback.createdAt))
+    : [];
+  res.json(sessions.map((s) => wireSession(s, feedback.filter((f) => f.sessionId === s.id))));
 }));
 router.post("/events", wrap(async (req, res) => {
   const user = await approved(req);

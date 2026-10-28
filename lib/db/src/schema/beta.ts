@@ -25,6 +25,17 @@ export const betaUsers = pgTable("beta_users", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("beta_users_email_idx").on(table.email)]);
 
+// One row per opened sample workspace. Times are server-side; length is
+// endedAt - startedAt. endedAt stays null if the tab died without closing.
+export const betaSessions = pgTable("beta_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => betaUsers.id),
+  platform: text("platform").$type<"web" | "mobile">().notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  endReason: text("end_reason").$type<"ended" | "timeout" | "left">(),
+}, (table) => [index("beta_sessions_user_idx").on(table.userId, table.startedAt)]);
+
 export const betaFeedback = pgTable("beta_feedback", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => betaUsers.id),
@@ -35,8 +46,14 @@ export const betaFeedback = pgTable("beta_feedback", {
   screen: text("screen").$type<"overview" | "schedule" | "clients" | "notes" | "billing" | "settings" | "other">().notNull(),
   status: text("status").$type<"new" | "in_review" | "resolved">().notNull().default("new"),
   adminNote: text("admin_note"),
+  sessionId: uuid("session_id").references(() => betaSessions.id),
+  // page = where the tester was when sending (captured automatically);
+  // area = what the feedback is about (tester can change it); areaDetail = optional free-text spot.
+  page: text("page"),
+  area: text("area"),
+  areaDetail: text("area_detail"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("beta_feedback_user_idx").on(table.userId)]);
+}, (table) => [index("beta_feedback_user_idx").on(table.userId), index("beta_feedback_session_idx").on(table.sessionId)]);
 
 export const betaEvents = pgTable("beta_events", {
   id: uuid("id").defaultRandom().primaryKey(),

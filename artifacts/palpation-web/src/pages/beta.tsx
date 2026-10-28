@@ -4,18 +4,25 @@ import { useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Clock, FlaskConical, LogOut, ShieldCheck, ShieldOff, Hourglass, CircleSlash, LayoutDashboard, X } from "lucide-react";
 import {
+  betaEndSession,
   getBetaGetMeQueryKey,
+  getBetaListMySessionsQueryKey,
   useBetaAcknowledge,
   useBetaRecordEvent,
+  useBetaStartSession,
+  type BetaArea,
   type BetaEvent,
   type BetaMe,
   type BetaScreen,
+  type BetaSessionEndReason,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Brand, Eyebrow, FullPageSkeleton, errorMessage, errorStatus } from "@/components/beta-ui";
 import { FeedbackForm, MyFeedbackList } from "@/components/feedback-panel";
+import { SessionLog } from "@/components/session-log";
+import { isArea } from "@/lib/feedback-areas";
 import { useBetaMe } from "@/hooks/use-beta-me";
 import { createSession } from "@/legacy/session.js";
 import { setBetaListener } from "@/legacy/betaBridge.js";
@@ -104,7 +111,7 @@ function Acknowledge({ me }: { me: BetaMe }) {
   );
 }
 
-function Home({ me, onOpen }: { me: BetaMe; onOpen: () => void }) {
+function Home({ me, onOpen, lastSessionId }: { me: BetaMe; onOpen: () => void; lastSessionId: string | null }) {
   return (
     <PortalFrame me={me}>
       <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr]">
@@ -124,6 +131,11 @@ function Home({ me, onOpen }: { me: BetaMe; onOpen: () => void }) {
             </Button>
           </div>
           <div className="mt-10">
+            <h2 className="text-[15px] font-semibold">Session log</h2>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">How long each session ran and the feedback you sent during it.</p>
+            <div className="mt-4"><SessionLog highlightId={lastSessionId} /></div>
+          </div>
+          <div className="mt-10">
             <h2 className="text-[15px] font-semibold">Your feedback</h2>
             <p className="mt-1 text-[12.5px] text-muted-foreground">Review status for each note you send appears here.</p>
             <div className="mt-4"><MyFeedbackList /></div>
@@ -132,7 +144,7 @@ function Home({ me, onOpen }: { me: BetaMe; onOpen: () => void }) {
         <section className="h-fit rounded-2xl border border-border bg-card p-6">
           <h2 className="text-[15px] font-semibold">Send feedback</h2>
           <p className="mt-1 mb-5 text-[12.5px] text-muted-foreground">Precise notes are the most useful ones.</p>
-          <FeedbackForm screen="other" />
+          <FeedbackForm screen="other" page="portal" defaultArea="other" />
         </section>
       </div>
     </PortalFrame>
@@ -144,13 +156,37 @@ function fmt(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function Workspace({ onClose, isAdmin }: { onClose: (reason?: string) => void; isAdmin: boolean }) {
+type CloseFn = (notice?: string, sessionId?: string | null) => void;
+
+function Workspace({ onClose, isAdmin }: { onClose: CloseFn; isAdmin: boolean }) {
   const [, navigate] = useLocation();
+  const qc = useQueryClient();
+  const startSession = useBetaStartSession();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const startedRef = useRef(false);
+  const endedRef = useRef<BetaSessionEndReason | null>(null);
+  const pageRef = useRef<BetaArea>("today");
+  const [page, setPage] = useState<BetaArea>("today");
+  // Ends the server-side session once. keepalive lets the request finish while the tab closes.
+  const endSessionRef = useRef((reason: BetaSessionEndReason, keepalive = false) => {
+    if (endedRef.current) return;
+    endedRef.current = reason;
+    const id = sessionIdRef.current;
+    if (!id) return; // still starting; finished in the start callback
+    void betaEndSession(id, { reason }, keepalive ? { keepalive: true } : undefined)
+      .catch(() => undefined)
+      .finally(() => qc.invalidateQueries({ queryKey: getBetaListMySessionsQueryKey() }));
+  });
+  const close = (reason: BetaSessionEndReason, notice?: string) => {
+    endSessionRef.current(reason);
+    onClose(notice, sessionIdRef.current);
+  };
   const record = useBetaRecordEvent();
   const recordRef = useRef(record.mutate);
   recordRef.current = record.mutate;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const onCloseRef = useRef(close);
+  onCloseRef.current = close;
   const screenRef = useRef<BetaScreen>("overview");
   const startedAt = useRef(Date.now());
   const [remaining, setRemaining] = useState(1_800_000);
@@ -167,10 +203,33 @@ function Workspace({ onClose, isAdmin }: { onClose: (reason?: string) => void; i
     : "";
 
   useEffect(() => {
-    const send = (event: string, screen: string) => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    startSession.mutate({ data: { platform: "web" } }, {
+      onSuccess: (s) => {
+        sessionIdRef.current = s.id;
+        setSessionId(s.id);
+        // Closed before the start finished: end it now with the reason we kept.
+        const pending = endedRef.current;
+        if (pending) { endedRef.current = null; endSessionRef.current(pending, true); }
+      },
+    });
+    const onPageHide = () => endSessionRef.current("left", true);
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const send = (event: string, screen: string, rawPage?: string) => {
       if (!ALLOWED_EVENTS.includes(event as BetaEvent)) return;
       const s = (ALLOWED_SCREENS.includes(screen as BetaScreen) ? screen : "other") as BetaScreen;
-      if (event === "screen_view") screenRef.current = s;
+      if (event === "screen_view") {
+        screenRef.current = s;
+        const p: BetaArea = isArea(rawPage) && rawPage !== "portal" ? rawPage : "other";
+        pageRef.current = p;
+        setPage(p);
+      }
       // Only enum values are sent: never names, notes, route params or amounts.
       recordRef.current({ data: { event: event as BetaEvent, platform: "web", screen: s } });
     };
@@ -181,7 +240,7 @@ function Workspace({ onClose, isAdmin }: { onClose: (reason?: string) => void; i
 
   useEffect(() => {
     const session = createSession(Date.now());
-    const expire = () => onCloseRef.current("Your sample workspace closed for inactivity or time limit. Nothing was kept.");
+    const expire = () => onCloseRef.current("timeout", "Your sample workspace closed for inactivity or time limit. Nothing was kept. Your session log is below.");
     const check = () => {
       if (!session.active(Date.now())) expire();
       else setRemaining(1_800_000 - (Date.now() - startedAt.current));
@@ -207,11 +266,11 @@ function Workspace({ onClose, isAdmin }: { onClose: (reason?: string) => void; i
       <aside className="demo-notice" aria-label="Beta workspace status" style={{ gap: 14 }}>
         <span>Private beta · Synthetic data only · Closes in <span className="tabular-nums" data-testid="text-session-remaining">{fmt(remaining)}</span></span>
         <button type="button" onClick={() => { setFlowReport(null); setFeedbackOpen(true); }} data-testid="button-workspace-feedback">Feedback</button>
-        <button type="button" onClick={() => onClose()} data-testid="button-end-session">End session</button>
+        <button type="button" onClick={() => close("ended")} data-testid="button-end-session">End session</button>
       </aside>
       <div className="demo-content">
         <Suspense fallback={<FullPageSkeleton label="Opening your sample workspace" />}>
-          <LegacyApp isAdmin={isAdmin} onOpenAdmin={() => { onClose(); navigate("/admin"); }} onReportFlowStep={reportFlowStep} />
+          <LegacyApp isAdmin={isAdmin} onOpenAdmin={() => { close("ended"); navigate("/admin"); }} onReportFlowStep={reportFlowStep} />
         </Suspense>
       </div>
       <Dialog open={feedbackOpen} onOpenChange={(v) => { setFeedbackOpen(v); if (!v) setFlowReport(null); }}>
@@ -220,7 +279,7 @@ function Workspace({ onClose, isAdmin }: { onClose: (reason?: string) => void; i
             <DialogTitle>{flowReport?.kind === "issue" ? "Report a step issue" : "Send feedback"}</DialogTitle>
             <DialogDescription>We'll note the step reference, not sample records. Please do not include any patient or client information.</DialogDescription>
           </DialogHeader>
-          <FeedbackForm key={flowReport ? `${reference}:${flowReport.kind}` : "general"} screen={flowReport ? "other" : screenRef.current} flowContext={flowReport ? { label: `${flowReport.flowName} · ${flowReport.nodeLabel}`, reference, kind: flowReport.kind } : undefined} onDone={() => { setFeedbackOpen(false); setFlowReport(null); }} />
+          <FeedbackForm key={flowReport ? `${reference}:${flowReport.kind}` : `general:${page}`} screen={flowReport ? "other" : screenRef.current} page={flowReport ? "flows" : page} sessionId={sessionId} flowContext={flowReport ? { label: `${flowReport.flowName} · ${flowReport.nodeLabel}`, reference, kind: flowReport.kind } : undefined} onDone={() => { setFeedbackOpen(false); setFlowReport(null); }} />
         </DialogContent>
       </Dialog>
     </>
@@ -231,6 +290,7 @@ export default function BetaPortal() {
   const me = useBetaMe();
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [lastSessionId, setLastSessionId] = useState<string | null>(null);
 
   const allowed = me.data?.status === "approved" && me.data.acknowledged;
   // Fail closed: any change in access immediately unmounts the workspace (and its memory).
@@ -282,7 +342,11 @@ export default function BetaPortal() {
   }
   if (!user.acknowledged) return <Acknowledge me={user} />;
 
-  if (open && allowed) return <Workspace isAdmin={user.role === "admin"} onClose={(reason) => { setOpen(false); setNotice(reason ?? null); window.scrollTo(0, 0); }} />;
+  if (open && allowed) {
+    return <Workspace isAdmin={user.role === "admin"} onClose={(message, sessionId) => {
+      setOpen(false); setNotice(message ?? null); setLastSessionId(sessionId ?? null); window.scrollTo(0, 0);
+    }} />;
+  }
 
   return (
     <>
@@ -292,7 +356,7 @@ export default function BetaPortal() {
           <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)} className="text-muted-foreground hover:text-foreground" data-testid="button-dismiss-notice"><X className="h-4 w-4" /></button>
         </div>
       )}
-      <Home me={user} onOpen={() => { setNotice(null); setOpen(true); }} />
+      <Home me={user} lastSessionId={lastSessionId} onOpen={() => { setNotice(null); setOpen(true); }} />
     </>
   );
 }
