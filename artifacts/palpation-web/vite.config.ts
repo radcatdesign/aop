@@ -34,11 +34,23 @@ const clerkPublishableKey =
   process.env.CLERK_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
+// Production Clerk on a domain without Clerk DNS records runs through the API's
+// /api/__clerk proxy. CLERK_PROXY_URL is the name Clerk's server SDK also reads.
+const clerkProxyUrl =
+  process.env.VITE_CLERK_PROXY_URL ||
+  process.env.CLERK_PROXY_URL ||
+  process.env.NEXT_PUBLIC_CLERK_PROXY_URL;
+
 export default defineConfig({
   base: basePath,
-  define: clerkPublishableKey
-    ? { 'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey) }
-    : {},
+  define: {
+    ...(clerkPublishableKey
+      ? { 'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey) }
+      : {}),
+    ...(clerkProxyUrl
+      ? { 'import.meta.env.VITE_CLERK_PROXY_URL': JSON.stringify(clerkProxyUrl) }
+      : {}),
+  },
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
