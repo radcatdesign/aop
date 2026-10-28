@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, History, MessageSquareText } from "lucide-react";
+import { ChevronDown, History, MapPin, MessageSquareText } from "lucide-react";
 import { useBetaListMySessions, type BetaSession } from "@workspace/api-client-react";
-import { EmptyState, ErrorState, StatusPill, errorMessage, formatDate } from "@/components/beta-ui";
+import { EmptyState, ErrorState, StatusPill, errorMessage } from "@/components/beta-ui";
 import { areaLabel, formatLength } from "@/lib/feedback-areas";
 
 const END_LABEL: Record<string, string> = {
@@ -9,6 +9,9 @@ const END_LABEL: Record<string, string> = {
   timeout: "Closed for inactivity or time limit",
   left: "Closed when you left the page",
 };
+
+const startedText = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // Sessions are capped at 30 minutes; one still open well past that never got closed.
 const STALE_MS = 31 * 60 * 1000;
@@ -34,7 +37,7 @@ function SessionRow({ s, highlight, defaultOpen }: { s: BetaSession; highlight: 
       >
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-foreground">
-            {formatDate(s.startedAt)}
+            {startedText(s.startedAt)}
             {highlight && <span className="rounded-full bg-primary px-2 py-px text-[10.5px] font-semibold text-primary-foreground">Just ended</span>}
           </span>
           <span className="mt-0.5 block text-[12px] text-muted-foreground">{endText(s)}</span>
@@ -53,14 +56,19 @@ function SessionRow({ s, highlight, defaultOpen }: { s: BetaSession; highlight: 
             <ul className="space-y-2">
               {s.feedback.map((f) => (
                 <li key={f.id} className="rounded-lg border border-border bg-background px-3 py-2.5" data-testid={`row-session-feedback-${f.id}`}>
-                  <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
                     <span className="font-semibold uppercase tracking-wider">{f.category}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{areaLabel(f.area) ?? f.screen}{f.areaDetail ? ` · ${f.areaDetail}` : ""}</span>
-                    {f.page && f.area && f.page !== f.area && <span>(sent from {areaLabel(f.page) ?? f.page})</span>}
-                    {f.rating && <><span aria-hidden="true">·</span><span>{f.rating}/5</span></>}
+                    {f.rating && <span>· {f.rating}/5</span>}
                     <span className="ml-auto"><StatusPill value={f.status} /></span>
                   </div>
+                  <p className="mt-1 flex items-start gap-1.5 text-[12px] text-muted-foreground" data-testid={`text-session-feedback-area-${f.id}`}>
+                    <MapPin className="mt-[3px] h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="font-medium text-foreground/80">{areaLabel(f.area) ?? f.screen}</span>
+                      {f.areaDetail && <> · {f.areaDetail}</>}
+                      {f.page && f.area && f.page !== f.area && <> · sent from {areaLabel(f.page) ?? f.page}</>}
+                    </span>
+                  </p>
                   <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-[13px] text-foreground">{f.message}</p>
                 </li>
               ))}
