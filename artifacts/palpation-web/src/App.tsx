@@ -92,7 +92,7 @@ function AuthShell({ children }: { children: ReactNode }) {
       <header className="mx-auto w-full max-w-6xl px-5 py-5 sm:px-8"><Brand sub="Private beta" /></header>
       <main className="flex flex-1 flex-col items-center justify-center gap-5 px-4 pb-10">
         {children}
-        <p className="max-w-[440px] text-center text-[12px] leading-relaxed text-muted-foreground">
+        <p className="max-w-[440px] text-center text-sm leading-relaxed text-muted-foreground">
           Beta access is matched to your verified email. Use the same address you entered on the invite request.
         </p>
       </main>

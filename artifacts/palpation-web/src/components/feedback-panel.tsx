@@ -76,17 +76,17 @@ export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flo
   return (
     <form onSubmit={send} className="space-y-5" noValidate>
       {flowContext && (
-        <p className="rounded-lg border border-border bg-secondary px-3 py-2 text-[12.5px] text-secondary-foreground">
+        <p className="rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-secondary-foreground">
           {flowContext.kind === "issue" ? "Reporting an issue with" : "Feedback on"}: {flowContext.label}
         </p>
       )}
-      <div className="flex gap-3 rounded-lg border border-[hsl(40_55%_85%)] bg-[hsl(40_70%_97%)] p-3 text-[12.5px] leading-relaxed text-[hsl(40_40%_28%)]" role="note">
+      <div className="flex gap-3 rounded-lg border border-[hsl(40_55%_85%)] bg-[hsl(40_70%_97%)] p-3 text-sm leading-relaxed text-[hsl(40_40%_28%)]" role="note">
         <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
         <span>Do not include patient or client information — no names, notes, contact details or payment amounts. Describe the tool, not the person.</span>
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-[12px] font-medium text-muted-foreground">Category</legend>
+        <legend className="mb-2 text-sm font-medium text-muted-foreground">Category</legend>
         <div className="grid grid-cols-3 gap-2" role="radiogroup">
           {CATEGORIES.map((c) => (
             <button
@@ -95,20 +95,20 @@ export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flo
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${category === c.value ? "border-primary bg-secondary text-secondary-foreground" : "border-border bg-card text-foreground hover:border-primary/40"}`}
               data-testid={`button-category-${c.value}`}
             >
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{c.hint}</span>
-              <span className="mt-0.5 block text-[12.5px] font-medium">{c.label}</span>
+              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{c.hint}</span>
+              <span className="mt-0.5 block text-sm font-medium">{c.label}</span>
             </button>
           ))}
         </div>
       </fieldset>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_1.2fr]">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label htmlFor="fb-area" className="text-[12px] font-medium text-muted-foreground">Area</Label>
+          <Label htmlFor="fb-area" className="text-sm font-medium text-muted-foreground">Area</Label>
           {/* Native select: it sits inside a high z-index dialog where portaled menus get buried. */}
           <select
             id="fb-area" value={area} onChange={(e) => setArea(e.target.value as BetaArea)}
-            className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-3 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-2 flex h-9 w-full rounded-md border border-input bg-background px-3 text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="select-feedback-area"
           >
             {AREA_GROUPS.map((g) => (
@@ -119,22 +119,22 @@ export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flo
           </select>
         </div>
         <div>
-          <Label htmlFor="fb-spot" className="text-[12px] font-medium text-muted-foreground">Specific spot <span className="font-normal">(optional)</span></Label>
+          <Label htmlFor="fb-spot" className="text-sm font-medium text-muted-foreground">Specific spot <span className="font-normal">(optional)</span></Label>
           <Input
             id="fb-spot" value={areaDetail} maxLength={160} onChange={(e) => setAreaDetail(e.target.value)}
-            className="mt-2 h-9 text-[13px]" placeholder="e.g. room dropdown in the booking drawer"
+            className="mt-2 h-9 text-body" placeholder="e.g. room dropdown in the booking drawer"
             data-testid="input-feedback-spot"
           />
         </div>
       </div>
       {page !== "portal" && (
-        <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] text-muted-foreground" data-testid="text-feedback-page">
+        <p className="-mt-2 flex items-center gap-1.5 text-caption text-muted-foreground" data-testid="text-feedback-page">
           <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Sent from {areaLabel(page) ?? "the workspace"}. We record the page, never what's on it.
         </p>
       )}
 
       <fieldset>
-        <legend className="mb-2 text-[12px] font-medium text-muted-foreground">How did it feel? <span className="font-normal">(optional)</span></legend>
+        <legend className="mb-2 text-sm font-medium text-muted-foreground">How did it feel? <span className="font-normal">(optional)</span></legend>
         <div className="flex items-center gap-1" role="radiogroup">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
@@ -146,12 +146,12 @@ export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flo
               <Star className={`h-5 w-5 ${rating && n <= rating ? "fill-current" : "opacity-35"}`} />
             </button>
           ))}
-          {rating && <span className="ml-2 text-[12px] text-muted-foreground">{rating} of 5</span>}
+          {rating && <span className="ml-2 text-sm text-muted-foreground">{rating} of 5</span>}
         </div>
       </fieldset>
 
       <div>
-        <Label htmlFor="fb-message" className="text-[12px] font-medium text-muted-foreground">What happened, or what would help?</Label>
+        <Label htmlFor="fb-message" className="text-sm font-medium text-muted-foreground">What happened, or what would help?</Label>
         <Textarea
           id="fb-message" rows={5} value={message} maxLength={4000}
           onChange={(e) => setMessage(e.target.value)} onBlur={() => setTouched(true)}
@@ -159,13 +159,13 @@ export function FeedbackForm({ screen, page, defaultArea, sessionId, onDone, flo
           className="mt-2" placeholder="e.g. On the schedule, dragging a booking to a new room didn't update the room label until I refreshed the view."
           data-testid="input-feedback-message"
         />
-        <div className="mt-1 flex justify-between text-[11.5px]">
+        <div className="mt-1 flex justify-between text-caption">
           <span className="text-destructive">{touched && trimmed.length === 0 ? "Please write a short message." : touched && invalid ? "Please shorten your message." : ""}</span>
           <span className="text-muted-foreground">{fullMessage.length}/4000</span>
         </div>
       </div>
 
-      {submit.isError && <p role="alert" className="text-[13px] text-destructive">{errorMessage(submit.error, "We couldn't send your feedback. Please try again.")}</p>}
+      {submit.isError && <p role="alert" className="text-body text-destructive">{errorMessage(submit.error, "We couldn't send your feedback. Please try again.")}</p>}
 
       <Button type="submit" disabled={submit.isPending} className="w-full sm:w-auto" data-testid="button-submit-feedback">
         {submit.isPending ? "Sending..." : "Send feedback"}
@@ -188,13 +188,13 @@ export function MyFeedbackList() {
     <ul className="divide-y divide-border rounded-xl border border-border bg-card">
       {items.map((f) => (
         <li key={f.id} className="px-4 py-3.5" data-testid={`row-my-feedback-${f.id}`}>
-          <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
             <span className="font-semibold uppercase tracking-wider">{f.category}</span>
             <span aria-hidden="true">·</span><span>{areaLabel(f.area) ?? f.screen}{f.areaDetail ? ` · ${f.areaDetail}` : ""}</span>
             <span aria-hidden="true">·</span><span>{formatDate(f.createdAt)}</span>
             <span className="ml-auto"><StatusPill value={f.status} testId={`status-my-feedback-${f.id}`} /></span>
           </div>
-          <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-[13px] text-foreground">{f.message}</p>
+          <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-body text-foreground">{f.message}</p>
         </li>
       ))}
     </ul>

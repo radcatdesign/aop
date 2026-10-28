@@ -5,8 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BetaDataMode } from './betaDataMode';
 import type { BetaPlatform } from './betaPlatform';
 
 export interface BetaSessionStart {
   platform: BetaPlatform;
+  mode: BetaDataMode;
+  walkthrough?: boolean;
+  /** The tester ticked that everything is dummy content, deleted when the session ends and never saved. */
+  acknowledgedDummyData: true;
 }

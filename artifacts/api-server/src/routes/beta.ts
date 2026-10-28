@@ -40,7 +40,7 @@ type SessionRow = typeof betaSessions.$inferSelect;
 type FeedbackRow = typeof betaFeedback.$inferSelect;
 // Length comes from server timestamps only; null until the session is closed.
 const wireSession = (s: SessionRow, feedback: FeedbackRow[]) => ({
-  id: s.id, platform: s.platform, startedAt: s.startedAt.toISOString(), endedAt: iso(s.endedAt), endReason: s.endReason ?? null,
+  id: s.id, platform: s.platform, mode: s.mode, walkthrough: s.walkthrough, startedAt: s.startedAt.toISOString(), endedAt: iso(s.endedAt), endReason: s.endReason ?? null,
   durationSeconds: s.endedAt ? Math.max(0, Math.round((s.endedAt.getTime() - s.startedAt.getTime()) / 1000)) : null,
   feedback: feedback.map((f) => ({
     id: f.id, category: f.category, message: f.message, rating: f.rating, screen: f.screen,
@@ -187,7 +187,9 @@ router.post("/sessions", wrap(async (req, res) => {
   if (!user.acknowledged) throw new HttpError(403, "Beta access required");
   await limit("session", user.id, 30, 3600000);
   const body = parse(BetaStartSessionBody.strict(), req.body);
-  const [session] = await db.insert(betaSessions).values({ userId: user.id, platform: body.platform }).returning();
+  // The start gate requires ticking that all workspace content is dummy data, deleted at session end.
+  if (body.acknowledgedDummyData !== true) throw new HttpError(400, "Invalid input");
+  const [session] = await db.insert(betaSessions).values({ userId: user.id, platform: body.platform, mode: body.mode, walkthrough: body.walkthrough ?? false }).returning();
   res.json(wireSession(session, []));
 }));
 router.post("/sessions/:id/end", wrap(async (req, res) => {

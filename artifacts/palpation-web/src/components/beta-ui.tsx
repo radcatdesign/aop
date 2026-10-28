@@ -38,19 +38,19 @@ export function Brand({ href = "/", sub }: { href?: string; sub?: string }) {
     <Link href={href} className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="link-home">
       <BrandMark />
       <span className="leading-tight">
-        <span className="flex items-center gap-1.5 text-[15px] font-semibold tracking-tight text-foreground">
+        <span className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
           Art of Palpation
           {/* Product name isn't final yet. */}
-          <span className="rounded-[4px] border border-border px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-[0.12em] text-muted-foreground" title="Name to be decided">TBD</span>
+          <span className="rounded-[4px] border border-border px-1 py-px text-xs font-semibold uppercase leading-none tracking-[0.12em] text-muted-foreground" title="Name to be decided">TBD</span>
         </span>
-        {sub && <span className="block text-[9.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{sub}</span>}
+        {sub && <span className="block text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{sub}</span>}
       </span>
     </Link>
   );
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
-  return <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-primary/80">{children}</span>;
+  return <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary/80">{children}</span>;
 }
 
 export function ErrorState({ title = "We couldn't load this", message, onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
@@ -59,7 +59,7 @@ export function ErrorState({ title = "We couldn't load this", message, onRetry }
       <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
       <div>
         <p className="text-sm font-semibold text-foreground">{title}</p>
-        {message && <p className="mt-1 text-[13px] text-muted-foreground">{message}</p>}
+        {message && <p className="mt-1 text-body text-muted-foreground">{message}</p>}
       </div>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={onRetry} data-testid="button-retry">
@@ -75,7 +75,7 @@ export function EmptyState({ icon, title, children }: { icon: ReactNode; title: 
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <span className="grid h-11 w-11 place-items-center rounded-full border border-border bg-secondary text-primary">{icon}</span>
       <p className="text-sm font-semibold text-foreground">{title}</p>
-      {children && <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">{children}</p>}
+      {children && <p className="max-w-sm text-body leading-relaxed text-muted-foreground">{children}</p>}
     </div>
   );
 }
@@ -94,7 +94,7 @@ const TONES: Record<string, string> = {
 
 export function StatusPill({ value, testId }: { value: string; testId?: string }) {
   return (
-    <span data-testid={testId} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] border px-2 py-0.5 text-[11px] font-medium ${TONES[value] ?? TONES.tester}`}>
+    <span data-testid={testId} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] border px-2 py-0.5 text-caption font-medium ${TONES[value] ?? TONES.tester}`}>
       <i className="h-1 w-1 rounded-full bg-current" aria-hidden="true" />
       {value.replace("_", " ")}
     </span>

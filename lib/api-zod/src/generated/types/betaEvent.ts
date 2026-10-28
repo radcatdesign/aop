@@ -14,4 +14,7 @@ export const BetaEvent = {
   screen_view: 'screen_view',
   assessment_saved: 'assessment_saved',
   checkout_demo: 'checkout_demo',
+  tour_skipped: 'tour_skipped',
+  tour_chose_demo: 'tour_chose_demo',
+  tour_chose_fresh: 'tour_chose_fresh',
 } as const;

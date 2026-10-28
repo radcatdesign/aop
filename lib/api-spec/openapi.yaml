@@ -560,13 +560,25 @@ components:
       type: string
       description: ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away
       enum: [ended, timeout, left]
+    BetaDataMode:
+      type: string
+      description: demo = sample practice with invented records; fresh = empty practice for the tester's own made-up entries
+      enum: [demo, fresh]
     BetaSessionStart:
       type: object
       additionalProperties: false
       properties:
         platform:
           $ref: "#/components/schemas/BetaPlatform"
-      required: [platform]
+        mode:
+          $ref: "#/components/schemas/BetaDataMode"
+        walkthrough:
+          type: boolean
+        acknowledgedDummyData:
+          type: boolean
+          const: true
+          description: The tester ticked that everything is dummy content, deleted when the session ends and never saved.
+      required: [platform, mode, acknowledgedDummyData]
     BetaSessionEnd:
       type: object
       additionalProperties: false
@@ -610,6 +622,10 @@ components:
           type: string
         platform:
           $ref: "#/components/schemas/BetaPlatform"
+        mode:
+          $ref: "#/components/schemas/BetaDataMode"
+        walkthrough:
+          type: boolean
         startedAt:
           type: string
           format: date-time
@@ -627,7 +643,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BetaSessionFeedback"
-      required: [id, platform, startedAt, endedAt, endReason, durationSeconds, feedback]
+      required: [id, platform, mode, walkthrough, startedAt, endedAt, endReason, durationSeconds, feedback]
     BetaPlatform:
       type: string
       enum: [web, mobile]
@@ -721,7 +737,7 @@ components:
           maxLength: 4000
     BetaEvent:
       type: string
-      enum: [session_start, screen_view, assessment_saved, checkout_demo]
+      enum: [session_start, screen_view, assessment_saved, checkout_demo, tour_skipped, tour_chose_demo, tour_chose_fresh]
     BetaEventSubmission:
       type: object
       additionalProperties: false

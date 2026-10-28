@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type R
 import { Link, Redirect, useLocation } from "wouter";
 import { useClerk } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Clock, FlaskConical, LogOut, ShieldCheck, ShieldOff, Hourglass, CircleSlash, LayoutDashboard, X } from "lucide-react";
+import { ArrowRight, Clock, Compass, FlaskConical, LogOut, ShieldCheck, ShieldOff, Hourglass, CircleSlash, LayoutDashboard, Trash2, X } from "lucide-react";
 import {
   betaEndSession,
   getBetaGetMeQueryKey,
@@ -11,6 +11,7 @@ import {
   useBetaRecordEvent,
   useBetaStartSession,
   type BetaArea,
+  type BetaDataMode,
   type BetaEvent,
   type BetaMe,
   type BetaScreen,
@@ -22,6 +23,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Brand, Eyebrow, FullPageSkeleton, errorMessage, errorStatus } from "@/components/beta-ui";
 import { FeedbackForm, MyFeedbackList } from "@/components/feedback-panel";
 import { SessionLog } from "@/components/session-log";
+import { StartSessionDialog, type SessionChoice } from "@/components/start-session-dialog";
+import { Walkthrough } from "@/components/walkthrough";
 import { isArea } from "@/lib/feedback-areas";
 import { useBetaMe } from "@/hooks/use-beta-me";
 import { createSession } from "@/legacy/session.js";
@@ -29,10 +32,19 @@ import { setBetaListener } from "@/legacy/betaBridge.js";
 import "@/legacy/security.css";
 
 type FlowReport = { flowId: string; flowName: string; nodeId: string; nodeLabel: string; kind: "issue" | "feedback" };
-type LegacyAppProps = { isAdmin: boolean; onOpenAdmin: () => void; onReportFlowStep: (report: FlowReport) => void };
+type LegacyAppProps = {
+  isAdmin: boolean; onOpenAdmin: () => void; onReportFlowStep: (report: FlowReport) => void;
+  seedMode: BetaDataMode; requestedView: { view: string; n: number } | null;
+};
 const LegacyApp = lazy(() => import("@/legacy/App.jsx")) as ComponentType<LegacyAppProps>;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const ALLOWED_EVENTS: readonly BetaEvent[] = ["session_start", "screen_view", "assessment_saved", "checkout_demo"];
+const ALLOWED_EVENTS: readonly BetaEvent[] = ["session_start", "screen_view", "assessment_saved", "checkout_demo", "tour_skipped", "tour_chose_demo", "tour_chose_fresh"];
+
+// Whether this tester has been through the walkthrough on this browser. A
+// convenience only: it just decides which choice the start dialog suggests.
+const tourKey = (userId: string) => `aop.walkthrough.done.${userId}`;
+function tourDone(userId: string) { try { return localStorage.getItem(tourKey(userId)) === "1"; } catch { return false; } }
+function markTourDone(userId: string) { try { localStorage.setItem(tourKey(userId), "1"); } catch { /* storage blocked: fine */ } }
 const ALLOWED_SCREENS: readonly BetaScreen[] = ["overview", "schedule", "clients", "notes", "billing", "settings", "other"];
 
 function useSignOut() {
@@ -50,11 +62,11 @@ function PortalFrame({ me, children }: { me?: BetaMe; children: ReactNode }) {
           <Brand href="/beta" sub="Private beta" />
           <div className="flex items-center gap-2">
             {me?.role === "admin" && me.status === "approved" && (
-              <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-primary" data-testid="link-admin">
+              <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-body font-medium text-muted-foreground hover:text-primary" data-testid="link-admin">
                 <LayoutDashboard className="h-4 w-4" /> Admin
               </Link>
             )}
-            {me && <span className="hidden text-[12.5px] text-muted-foreground sm:inline" data-testid="text-user-email">{me.email}</span>}
+            {me && <span className="hidden text-sm text-muted-foreground sm:inline" data-testid="text-user-email">{me.email}</span>}
             <Button variant="ghost" size="sm" onClick={signOut} data-testid="button-sign-out"><LogOut className="mr-1.5 h-4 w-4" /> Sign out</Button>
           </div>
         </div>
@@ -71,7 +83,7 @@ function BlockedView({ me, icon, eyebrow, title, children }: { me?: BetaMe; icon
         <span className="grid h-11 w-11 place-items-center rounded-full bg-secondary text-primary">{icon}</span>
         <div className="mt-5"><Eyebrow>{eyebrow}</Eyebrow></div>
         <h1 className="mt-2 text-2xl font-medium tracking-tight">{title}</h1>
-        <div className="mt-3 space-y-3 text-[13.5px] leading-relaxed text-muted-foreground">{children}</div>
+        <div className="mt-3 space-y-3 text-body leading-relaxed text-muted-foreground">{children}</div>
       </section>
     </PortalFrame>
   );
@@ -88,7 +100,7 @@ function Acknowledge({ me }: { me: BetaMe }) {
       <section className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-8 sm:p-10">
         <Eyebrow>Before you begin</Eyebrow>
         <h1 className="mt-2 text-2xl font-medium tracking-tight">Welcome, {me.name.split(" ")[0] || "there"}. One agreement first.</h1>
-        <ul className="mt-6 space-y-3 text-[13.5px] leading-relaxed text-foreground/85">
+        <ul className="mt-6 space-y-3 text-body leading-relaxed text-foreground/85">
           {[
             "The workspace contains synthetic, invented clients only. I will not enter real client or patient names, notes, contact details, health information or payment details.",
             "Everything in the workspace is held in browser memory and is discarded when I leave, after 5 minutes of inactivity, or after 30 minutes total.",
@@ -98,11 +110,11 @@ function Acknowledge({ me }: { me: BetaMe }) {
             <li key={t} className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />{t}</li>
           ))}
         </ul>
-        <label className="mt-7 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background p-4 text-[13.5px]">
+        <label className="mt-7 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background p-4 text-body">
           <Checkbox checked={checked} onCheckedChange={(v) => setChecked(v === true)} className="mt-0.5" data-testid="checkbox-acknowledge" />
           <span>I understand this is a synthetic-data beta and I will not enter real patient information.</span>
         </label>
-        {ack.isError && <p role="alert" className="mt-3 text-[13px] text-destructive">{errorMessage(ack.error, "We couldn't record your acknowledgment. Please try again.")}</p>}
+        {ack.isError && <p role="alert" className="mt-3 text-body text-destructive">{errorMessage(ack.error, "We couldn't record your acknowledgment. Please try again.")}</p>}
         <Button className="mt-6" disabled={!checked || ack.isPending} onClick={() => ack.mutate()} data-testid="button-acknowledge">
           {ack.isPending ? "Saving..." : <>Agree and continue <ArrowRight className="ml-1.5 h-4 w-4" /></>}
         </Button>
@@ -111,39 +123,54 @@ function Acknowledge({ me }: { me: BetaMe }) {
   );
 }
 
-function Home({ me, onOpen, lastSessionId }: { me: BetaMe; onOpen: () => void; lastSessionId: string | null }) {
+function Home({ me, onStart, lastSessionId }: { me: BetaMe; onStart: (suggested: SessionChoice) => void; lastSessionId: string | null }) {
+  const firstTime = !tourDone(me.id);
   return (
     <PortalFrame me={me}>
       <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr]">
         <section>
           <Eyebrow>Approved tester</Eyebrow>
           <h1 className="mt-2 text-[32px] font-medium leading-tight tracking-[-0.02em]">Your sample practice is ready.</h1>
-          <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-muted-foreground">
-            Open the office workspace to walk through scheduling, intake, SOAP charting and checkout with invented clients. It starts fresh every time.
+          <p className="mt-3 max-w-lg text-base leading-relaxed text-muted-foreground">
+            Walk through scheduling, intake, SOAP charting and checkout. Start with a demo practice full of invented clients, or a fresh, empty one for your own test entries.
           </p>
           <div className="mt-7 rounded-2xl border border-border bg-card p-6">
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12.5px] text-muted-foreground">
-              <span className="flex items-center gap-2"><FlaskConical className="h-4 w-4 text-primary" /> Synthetic records only</span>
+            {firstTime && (
+              <div className="mb-5 rounded-xl bg-secondary p-4" data-testid="card-first-time">
+                <p className="flex items-center gap-2 text-body font-semibold text-foreground"><Compass className="h-4 w-4 text-primary" /> New here? Start with the guided walkthrough.</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">It takes you page by page through the workspace using demo data, then lets you try your own version.</p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2"><FlaskConical className="h-4 w-4 text-primary" /> Dummy content only</span>
+              <span className="flex items-center gap-2"><Trash2 className="h-4 w-4 text-primary" /> Deleted when the session ends</span>
               <span className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Closes after 5 min idle / 30 min total</span>
             </div>
-            <Button size="lg" className="mt-5 w-full sm:w-auto" onClick={onOpen} data-testid="button-open-workspace">
-              Open sample workspace <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Button>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Button size="lg" onClick={() => onStart({ mode: "demo", walkthrough: firstTime })} data-testid="button-open-workspace">
+                {firstTime ? "Start the walkthrough" : "Start a session"} <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+              {!firstTime && (
+                <Button size="lg" variant="outline" onClick={() => onStart({ mode: "demo", walkthrough: true })} data-testid="button-replay-walkthrough">
+                  <Compass className="mr-1.5 h-4 w-4" /> Replay the walkthrough
+                </Button>
+              )}
+            </div>
           </div>
           <div className="mt-10">
-            <h2 className="text-[15px] font-semibold">Session log</h2>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">How long each session ran and the feedback you sent during it.</p>
+            <h2 className="text-lg font-semibold">Session log</h2>
+            <p className="mt-1 text-sm text-muted-foreground">How long each session ran and the feedback you sent during it.</p>
             <div className="mt-4"><SessionLog highlightId={lastSessionId} /></div>
           </div>
           <div className="mt-10">
-            <h2 className="text-[15px] font-semibold">Your feedback</h2>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">Review status for each note you send appears here.</p>
+            <h2 className="text-lg font-semibold">Your feedback</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Review status for each note you send appears here.</p>
             <div className="mt-4"><MyFeedbackList /></div>
           </div>
         </section>
         <section className="h-fit rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-[15px] font-semibold">Send feedback</h2>
-          <p className="mt-1 mb-5 text-[12.5px] text-muted-foreground">Precise notes are the most useful ones.</p>
+          <h2 className="text-lg font-semibold">Send feedback</h2>
+          <p className="mt-1 mb-5 text-sm text-muted-foreground">Precise notes are the most useful ones.</p>
           <FeedbackForm screen="other" page="portal" defaultArea="other" />
         </section>
       </div>
@@ -158,8 +185,12 @@ function fmt(ms: number) {
 
 type CloseFn = (notice?: string, sessionId?: string | null) => void;
 
-function Workspace({ onClose, isAdmin }: { onClose: CloseFn; isAdmin: boolean }) {
+function Workspace({ onClose, isAdmin, choice, userId }: { onClose: CloseFn; isAdmin: boolean; choice: SessionChoice; userId: string }) {
   const [, navigate] = useLocation();
+  // Data can switch from demo to fresh at the end of the walkthrough; the key remounts the workspace empty.
+  const [dataMode, setDataMode] = useState<BetaDataMode>(choice.mode);
+  const [tourOn, setTourOn] = useState(choice.walkthrough);
+  const [requestedView, setRequestedView] = useState<{ view: string; n: number } | null>(null);
   const qc = useQueryClient();
   const startSession = useBetaStartSession();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -205,7 +236,7 @@ function Workspace({ onClose, isAdmin }: { onClose: CloseFn; isAdmin: boolean })
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    startSession.mutate({ data: { platform: "web" } }, {
+    startSession.mutate({ data: { platform: "web", mode: choice.mode, walkthrough: choice.walkthrough, acknowledgedDummyData: true } }, {
       onSuccess: (s) => {
         sessionIdRef.current = s.id;
         setSessionId(s.id);
@@ -261,18 +292,35 @@ function Workspace({ onClose, isAdmin }: { onClose: CloseFn; isAdmin: boolean })
     };
   }, []);
 
+  const tourEvent = (event: BetaEvent) => recordRef.current({ data: { event, platform: "web", screen: "other" } });
+  const endTour = () => { setTourOn(false); markTourDone(userId); };
+
   return (
     <>
       <aside className="demo-notice" aria-label="Beta workspace status" style={{ gap: 14 }}>
-        <span>Private beta · Synthetic data only · Closes in <span className="tabular-nums" data-testid="text-session-remaining">{fmt(remaining)}</span></span>
+        <span>
+          <strong data-testid="text-session-mode">{dataMode === "demo" ? "Demo data" : "Fresh start"}</strong>
+          <span className="demo-notice-long"> · Dummy content, deleted when the session ends</span> · <span className="demo-notice-long">Closes in </span><span className="tabular-nums" data-testid="text-session-remaining">{fmt(remaining)}</span>
+        </span>
         <button type="button" onClick={() => { setFlowReport(null); setFeedbackOpen(true); }} data-testid="button-workspace-feedback">Feedback</button>
         <button type="button" onClick={() => close("ended")} data-testid="button-end-session">End session</button>
       </aside>
       <div className="demo-content">
         <Suspense fallback={<FullPageSkeleton label="Opening your sample workspace" />}>
-          <LegacyApp isAdmin={isAdmin} onOpenAdmin={() => { close("ended"); navigate("/admin"); }} onReportFlowStep={reportFlowStep} />
+          <LegacyApp key={dataMode} seedMode={dataMode} requestedView={requestedView} isAdmin={isAdmin} onOpenAdmin={() => { close("ended"); navigate("/admin"); }} onReportFlowStep={reportFlowStep} />
         </Suspense>
       </div>
+      {tourOn && (
+        <Walkthrough
+          onNavigate={(view) => setRequestedView({ view, n: Date.now() })}
+          onSkip={() => { endTour(); tourEvent("tour_skipped"); }}
+          onFinish={(next) => {
+            endTour();
+            tourEvent(next === "fresh" ? "tour_chose_fresh" : "tour_chose_demo");
+            if (next === "fresh") { setDataMode("fresh"); setRequestedView({ view: "clients", n: Date.now() }); }
+          }}
+        />
+      )}
       <Dialog open={feedbackOpen} onOpenChange={(v) => { setFeedbackOpen(v); if (!v) setFlowReport(null); }}>
         <DialogContent className="z-[100001] max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -291,6 +339,8 @@ export default function BetaPortal() {
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [lastSessionId, setLastSessionId] = useState<string | null>(null);
+  const [gate, setGate] = useState<SessionChoice | null>(null);
+  const [choice, setChoice] = useState<SessionChoice>({ mode: "demo", walkthrough: false });
 
   const allowed = me.data?.status === "approved" && me.data.acknowledged;
   // Fail closed: any change in access immediately unmounts the workspace (and its memory).
@@ -343,7 +393,7 @@ export default function BetaPortal() {
   if (!user.acknowledged) return <Acknowledge me={user} />;
 
   if (open && allowed) {
-    return <Workspace isAdmin={user.role === "admin"} onClose={(message, sessionId) => {
+    return <Workspace isAdmin={user.role === "admin"} choice={choice} userId={user.id} onClose={(message, sessionId) => {
       setOpen(false); setNotice(message ?? null); setLastSessionId(sessionId ?? null); window.scrollTo(0, 0);
     }} />;
   }
@@ -351,12 +401,18 @@ export default function BetaPortal() {
   return (
     <>
       {notice && (
-        <div role="status" className="fixed inset-x-0 top-3 z-50 mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-[13px] shadow-lg">
+        <div role="status" className="fixed inset-x-0 top-3 z-50 mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-body shadow-lg">
           {notice}
           <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)} className="text-muted-foreground hover:text-foreground" data-testid="button-dismiss-notice"><X className="h-4 w-4" /></button>
         </div>
       )}
-      <Home me={user} lastSessionId={lastSessionId} onOpen={() => { setNotice(null); setOpen(true); }} />
+      <Home me={user} lastSessionId={lastSessionId} onStart={(suggested) => { setNotice(null); setGate(suggested); }} />
+      <StartSessionDialog
+        open={!!gate}
+        onOpenChange={(v) => { if (!v) setGate(null); }}
+        initial={gate ?? { mode: "demo", walkthrough: false }}
+        onStart={(picked) => { setGate(null); setChoice(picked); setOpen(true); }}
+      />
     </>
   );
 }

@@ -135,6 +135,27 @@ const seed = {
   ],
 };
 
+// Fresh start: an empty practice for testers' own made-up entries. Keeps the
+// service catalog, CE courses and settings so booking and invoicing work, plus
+// one provider (the tester). History series are zeroed, not removed, so charts render.
+const freshSeed = {
+  ...seed,
+  practice: { ...seed.practice, name: "My test practice", city: "" },
+  providers: [{ id: "p1", name: "You", role: "LMT", color: COLORS[0], type: "W2", pay: "Hourly + commission", rate: 0, commission: 0, pin: "0000", license: "", licenseDays: 365, ceHours: 0, ceNeeded: 12, clockedIn: false, clockInAt: null }],
+  clients: [],
+  appts: [],
+  notes: [],
+  invoices: [],
+  threads: [],
+  revenueHistory: seed.revenueHistory.map((r) => ({ ...r, rev: 0 })),
+  utilByRoom: seed.utilByRoom.map((r) => ({ ...r, util: 0 })),
+  cxlHistory: seed.cxlHistory.map((r) => ({ ...r, cxl: 0 })),
+  payrollLog: [],
+  docs: [],
+  findings: {},
+  payables: [],
+};
+
 /* ----------------------------- reducer ----------------------------- */
 function reducer(state, action) {
   switch (action.type) {
@@ -292,12 +313,12 @@ const MOBILE_TABS = ["today", "schedule", "clients", "soap", "charting"];
 
 /* ----------------------------- App ----------------------------- */
 /**
- * @typedef {{ onReportFlowStep?: (report: { flowId: string, flowName: string, nodeId: string, nodeLabel: string, kind: "issue" | "feedback" }) => void, isAdmin?: boolean, onOpenAdmin?: () => void }} LegacyAppProps
+ * @typedef {{ onReportFlowStep?: (report: { flowId: string, flowName: string, nodeId: string, nodeLabel: string, kind: "issue" | "feedback" }) => void, isAdmin?: boolean, onOpenAdmin?: () => void, seedMode?: "demo" | "fresh", requestedView?: { view: string, n: number } | null }} LegacyAppProps
  */
 /** @param {LegacyAppProps} [props] */
 export default function App(props = {}) {
-  const { onReportFlowStep, isAdmin = false, onOpenAdmin } = props;
-  const [state, rawDispatch] = useReducer(reducer, seed);
+  const { onReportFlowStep, isAdmin = false, onOpenAdmin, seedMode = "demo", requestedView = null } = props;
+  const [state, rawDispatch] = useReducer(reducer, seedMode === "fresh" ? freshSeed : seed);
   const [view, setView] = useState("today");
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -318,7 +339,7 @@ export default function App(props = {}) {
   }, []);
   const [selClient, setSelClient] = useState(null);
   const [selNote, setSelNote] = useState(null);
-  const [selThread, setSelThread] = useState(state.threads[0].id);
+  const [selThread, setSelThread] = useState(state.threads[0]?.id ?? null);
   const [keypad, setKeypad] = useState(null); // provider id to clock toggle
   const [newAppt, setNewAppt] = useState(false);
   const [payModal, setPayModal] = useState(null); // invoice id
@@ -340,6 +361,9 @@ export default function App(props = {}) {
   const title = NAV.find((n) => n.id === view)?.label;
 
   const go = (v) => { setMobileOpen(false); setView(v); setSelClient(null); setSelNote(null); setApptFocus(null); setChartFocus(null); window.scrollTo(0, 0); };
+  // The guided walkthrough asks for a page by id; n changes on every request.
+  useEffect(() => { if (requestedView && NAV.some((n) => n.id === requestedView.view)) go(requestedView.view); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedView?.n]);
 
   return (
     <div className="aop">
@@ -355,13 +379,13 @@ export default function App(props = {}) {
               <div className="ws">Office Solutions</div>
             </div>
           </div>
-          <button className="practice-switcher" onClick={() => go('settings')}><span className="practice-icon"><Building2 size={17} /></span><span><strong>Plano practice</strong><small>Your workspace</small></span><ChevronsUpDown size={14} /></button>
-          <nav className="nav" aria-label="Workspace">
+          <button className="practice-switcher" onClick={() => go('settings')}><span className="practice-icon"><Building2 size={17} /></span><span><strong>{seedMode === "fresh" ? "My test practice" : "Plano practice"}</strong><small>{seedMode === "fresh" ? "Fresh start" : "Your workspace"}</small></span><ChevronsUpDown size={14} /></button>
+          <nav className="nav" aria-label="Workspace" data-tour="nav">
             {NAV_GROUPS.map((g) => (
               <div key={g}>
                 <div className="nav-group-label">{g}</div>
                 {NAV.filter((n) => n.group === g).map((n) => (
-                  <button key={n.id} className={view === n.id ? "on" : ""} aria-current={view === n.id ? 'page' : undefined} onClick={() => go(n.id)}>
+                  <button key={n.id} data-tour={`nav-${n.id}`} className={view === n.id ? "on" : ""} aria-current={view === n.id ? 'page' : undefined} onClick={() => go(n.id)}>
                     <n.icon size={17} /> {n.label}
                     {badges[n.id] > 0 && <span className="badge">{badges[n.id]}</span>}
                   </button>
@@ -378,15 +402,15 @@ export default function App(props = {}) {
             <button className="iconbtn mobile-menu" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(v => !v)}><Menu size={19} /></button>
             <div className="topbar-breadcrumb"><span>Workspace</span><ChevronRight size={13} /><strong>{title}</strong></div>
             <div className="spacer" />
-            <button ref={searchTrigger} aria-label="Search workspace" className="workspace-search" onClick={() => { setSearchQuery(''); setSearchOpen(true); }}><Search size={16} /><span>Search anything...</span><kbd>⌘ K</kbd></button>
+            <button ref={searchTrigger} data-tour="search" aria-label="Search workspace" className="workspace-search" onClick={() => { setSearchQuery(''); setSearchOpen(true); }}><Search size={16} /><span>Search anything...</span><kbd>⌘ K</kbd></button>
             <div className="topbar-divider" />
             <button className="notification-button" aria-label={`Open messages, ${newMsgs} unread conversations`} onClick={() => go('messages')}><BellRing size={18} />{newMsgs > 0 && <i />}</button>
             {isAdmin && typeof onOpenAdmin === "function" && <button className="btn ghost sm" onClick={onOpenAdmin}><Users size={14} /> Admin / Manage users</button>}
-            {!kioskOpen && <button className="btn ghost sm" onClick={() => setKioskOpen(true)}><Tablet size={15} /> Kiosk Mode</button>}
+            {!kioskOpen && <button className="btn ghost sm" data-tour="kiosk" onClick={() => setKioskOpen(true)}><Tablet size={15} /> Kiosk Mode</button>}
             <button className="owner-avatar topbar-owner" aria-label="Open account settings" onClick={() => go('settings')}>OW</button>
           </header>
 
-          <main className="content" id="main-content">
+          <main className="content" id="main-content" data-tour="content">
             {view !== 'today' && <div className="section-page-heading"><div className="eyebrow">{NAV.find(n => n.id === view)?.group}</div><h1>{title}</h1><p>{({ schedule: 'Make room for a well-planned day.', clients: 'Every client. Every detail. In one place.', soap: 'Thoughtful documentation for better continuity of care.', charting: 'A clearer picture of every assessment.', documents: 'Keep important records close at hand.', payments: 'A simple view of payments and balances.', invoicing: 'Keep your practice finances organized.', messages: 'Keep the conversation going.', reports: 'Understand how your practice is doing.', payroll: 'Take care of the people behind the care.', settings: 'Your practice, set up your way.', academy: 'Keep learning. Keep growing.', flows: 'A little guidance for the work ahead.', kiosk: 'Bring your workspace to the point of care.' })[view]}</p></div>}
             {view === "today" && <Dashboard {...{ state, dispatch, prov, client, go, dueNotes, dueInvoices, setApptFocus, setNewAppt }} date={todayISO} openClient={(id) => { go("clients"); setSelClient(id); }} />}
             {view === "schedule" && <Schedule {...{ state, dispatch, prov, client, setNewAppt, cal, setCal, apptFocus, clearApptFocus: () => setApptFocus(null) }} />}
@@ -399,7 +423,9 @@ export default function App(props = {}) {
             {view === "payroll" && <Payroll {...{ state, dispatch, prov, setKeypad }} />}
             {view === "flows" && <Flows flows={flows} setFlows={setFlows} flowNotes={flowNotes} setFlowNotes={setFlowNotes} onReportFlowStep={onReportFlowStep} />}
             {view === "kiosk" && <FieldLauncher onOpen={() => setKioskOpen(true)} />}
-            {view === "charting" && <Charting {...{ state, dispatch, client, chartFocus, clearChartFocus: () => setChartFocus(null) }} />}
+            {view === "charting" && (state.clients.some((c) => !c.archived)
+              ? <Charting {...{ state, dispatch, client, chartFocus, clearChartFocus: () => setChartFocus(null) }} />
+              : <div className="empty">Charting works per client. Add a client first, then come back to map findings on the body chart.<div style={{ marginTop: 10 }}><button className="btn pri" onClick={() => go("clients")}><Users size={15} /> Go to Clients</button></div></div>)}
             {view === "documents" && <Documents {...{ state, dispatch, client, go, setSelClient }} />}
             {view === "invoicing" && <Invoicing {...{ state, dispatch, client, prov, openPay: setPayModal, go, setSelClient, setApptFocus }} />}
             {view === "academy" && <Academy {...{ state, dispatch, prov }} />}
@@ -517,7 +543,7 @@ const APPT_STATUS = {
   noshow: { label: "No-show", bg: "#F6E3E1", fg: "#A23C37" },
   cxl: { label: "Cancelled", bg: "#EFEFEE", fg: "#5F6F6A" },
 };
-const apptPill = (s) => <span style={{ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 20, background: APPT_STATUS[s].bg, color: APPT_STATUS[s].fg, whiteSpace: "nowrap" }}>{APPT_STATUS[s].label}</span>;
+const apptPill = (s) => <span style={{ fontSize: 14, fontWeight: 600, padding: "5px 11px", borderRadius: 20, background: APPT_STATUS[s].bg, color: APPT_STATUS[s].fg, whiteSpace: "nowrap" }}>{APPT_STATUS[s].label}</span>;
 
 const invNum = (inv, state) => `${(state.invoiceSettings && state.invoiceSettings.prefix) || "INV"}-` + String(inv.id).replace(/^i/, "").toUpperCase().slice(-6).padStart(4, "0");
 
@@ -623,7 +649,7 @@ function Schedule({ state, dispatch, prov, client, setNewAppt, cal, setCal, appt
             return (
               <div className="appt" key={a.id} style={{ cursor: "pointer" }} onClick={() => setSelAppt(a.id)}>
                 <span className="time">{fmtTime(a.time)}</span>
-                <div className="avatar" style={{ background: p.color, width: 32, height: 32, fontSize: 12 }}>{initials(c.name)}</div>
+                <div className="avatar" style={{ background: p.color, width: 32, height: 32, fontSize: 14 }}>{initials(c.name)}</div>
                 <div className="meta">
                   <div className="nm">{c.name} <span className="muted" style={{ fontWeight: 400 }}>· {money0(a.price)}</span></div>
                   <div className="det">{a.svc} · {p.name} · {a.room}</div>
@@ -632,7 +658,7 @@ function Schedule({ state, dispatch, prov, client, setNewAppt, cal, setCal, appt
               </div>
             );
           })}
-          {list.length === 0 && <div className="muted" style={{ padding: "18px 4px", fontSize: 13.5 }}>No appointments match these filters.</div>}
+          {list.length === 0 && <div className="muted" style={{ padding: "18px 4px", fontSize: 15 }}>No appointments match these filters.</div>}
         </div>
       </div>
     </>
@@ -643,14 +669,14 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
   const a = appt, p = prov(a.providerId), c = client(a.clientId);
   const Row = ({ k, v, last }) => (
     <div className="row" style={{ justifyContent: "space-between", padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--border)" }}>
-      <span className="muted" style={{ fontSize: 13 }}>{k}</span><span style={{ fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
+      <span className="muted" style={{ fontSize: 15 }}>{k}</span><span style={{ fontSize: 15, fontWeight: 600, textAlign: "right" }}>{v}</span>
     </div>
   );
   return (
     <>
       <div className="row" style={{ gap: 12, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn ghost sm" onClick={onBack}><ArrowLeft size={14} /> Schedule</button>
-        <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>{c.name}</div>
         {apptPill(a.status)}
         <button className="btn" style={{ marginLeft: "auto" }} onClick={() => downloadFile(`appt-${a.id}.ics`, buildICS([a], { detail: true, prov, client, dateISO: todayISO }), "text/calendar")}><CalendarCheck size={14} /> Add to calendar</button>
         <button className="btn" onClick={onEdit}><Pencil size={14} /> Edit</button>
@@ -676,8 +702,8 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
           <Row k="Consent" v={c.consent ? "Signed" : "Not signed"} last={!(c.flags && c.flags.length)} />
           {c.flags && c.flags.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Flags</div>
-              <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{c.flags.map((f) => <span key={f} style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#F6E3E1", color: "#A23C37" }}>{f}</span>)}</div>
+              <div className="muted" style={{ fontSize: 14, marginBottom: 6 }}>Flags</div>
+              <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{c.flags.map((f) => <span key={f} style={{ fontSize: 14, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#F6E3E1", color: "#A23C37" }}>{f}</span>)}</div>
             </div>
           )}
         </section>
@@ -686,7 +712,7 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
       {c.plan && (
         <section className="card pad" style={{ marginTop: 16 }}>
           <div className="tiny" style={{ marginBottom: 8 }}>Treatment plan</div>
-          <div style={{ fontSize: 13.5, color: "var(--ink)" }}>{c.plan}</div>
+          <div style={{ fontSize: 15, color: "var(--ink)" }}>{c.plan}</div>
         </section>
       )}
 
@@ -705,7 +731,7 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
           </>}
           {(a.status === "noshow" || a.status === "cxl") &&
             <button className="btn" onClick={() => dispatch({ type: "SET_STATUS", id: a.id, status: "booked" })}><RotateCcw size={14} /> Rebook</button>}
-          {a.status === "done" && <span className="muted" style={{ fontSize: 13 }}>Visit completed — invoice generated. Use Edit to reschedule if needed.</span>}
+          {a.status === "done" && <span className="muted" style={{ fontSize: 15 }}>Visit completed — invoice generated. Use Edit to reschedule if needed.</span>}
         </div>
       </section>
     </>
@@ -714,13 +740,14 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
 
 function NewApptModal({ state, prov, client, onClose, onSave, initial, title, cta }) {
   const active = state.clients.filter((c) => !c.archived);
-  const [f, setF] = useState(initial || { clientId: (active[0] || state.clients[0]).id, providerId: state.providers[0].id, time: "14:00", svc: "Deep Tissue 60", price: 110, room: "Room 2" });
+  const [f, setF] = useState(initial || { clientId: (active[0] || state.clients[0])?.id ?? "", providerId: state.providers[0].id, time: "14:00", svc: "Deep Tissue 60", price: 110, room: "Room 2" });
   const up = (k, v) => setF({ ...f, [k]: v });
   return (
     <Modal title={title || "New appointment"} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancel</button>
-      <button className="btn pri" onClick={() => onSave(f)}>{cta || "Book appointment"}</button>
+      <button className="btn pri" disabled={!f.clientId} onClick={() => onSave(f)}>{cta || "Book appointment"}</button>
     </>}>
+      {!active.length && <div className="empty" style={{ marginBottom: 12 }}>Add a client first: go to Clients and choose New client.</div>}
       <div className="field"><label>Client</label>
         <select className="sel" value={f.clientId} onChange={(e) => up("clientId", e.target.value)}>{state.clients.filter((c) => !c.archived).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div className="field"><label>Provider</label>
@@ -761,8 +788,8 @@ function ClientModal({ initial, title, cta, onClose, onSave }) {
         {f.type === "patient" && <div className="field" style={{ gridColumn: "1 / -1" }}><label>Referring physician</label><input className="inp" value={f.referral || ""} onChange={(e) => up("referral", e.target.value)} placeholder="Dr. name · specialty" /></div>}
         <div className="field" style={{ gridColumn: "1 / -1" }}><label>Treatment plan</label><textarea className="ta" value={f.plan || ""} onChange={(e) => up("plan", e.target.value)} style={{ minHeight: 56 }} /></div>
         <div className="field" style={{ gridColumn: "1 / -1" }}><label>Flags / contraindications (comma-separated)</label><input className="inp" value={flagsText} onChange={(e) => setFlagsText(e.target.value)} placeholder="e.g. Latex sensitivity" /></div>
-        <label className="row" style={{ gap: 8, fontSize: 13, cursor: "pointer" }}><input type="checkbox" checked={!!f.intake} onChange={(e) => up("intake", e.target.checked)} /> Intake complete</label>
-        <label className="row" style={{ gap: 8, fontSize: 13, cursor: "pointer" }}><input type="checkbox" checked={!!f.consent} onChange={(e) => up("consent", e.target.checked)} /> Consent signed</label>
+        <label className="row" style={{ gap: 8, fontSize: 15, cursor: "pointer" }}><input type="checkbox" checked={!!f.intake} onChange={(e) => up("intake", e.target.checked)} /> Intake complete</label>
+        <label className="row" style={{ gap: 8, fontSize: 15, cursor: "pointer" }}><input type="checkbox" checked={!!f.consent} onChange={(e) => up("consent", e.target.checked)} /> Consent signed</label>
       </div>
     </Modal>
   );
@@ -787,7 +814,7 @@ function Kebab({ items }) {
         <div ref={menuRef} onClick={(e) => e.stopPropagation()} style={{ position: "fixed", top: pos.top, left: pos.left, width: 192, background: "#fff", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 12px 28px rgba(0,0,0,.14)", padding: 6, zIndex: 300 }}>
           {items.map((it, i) => it === "sep" ? <div key={i} style={{ height: 1, background: "var(--border)", margin: "4px 0" }} /> : (
             <button key={i} disabled={it.disabled} title={it.title} onClick={() => { if (it.disabled) return; setOpen(false); it.onClick(); }}
-              style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", background: "none", border: "none", padding: "8px 10px", borderRadius: 7, fontFamily: "inherit", fontSize: 13, color: it.danger ? "var(--rose)" : "var(--ink)", cursor: it.disabled ? "not-allowed" : "pointer", opacity: it.disabled ? .45 : 1 }}
+              style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", background: "none", border: "none", padding: "8px 10px", borderRadius: 7, fontFamily: "inherit", fontSize: 15, color: it.danger ? "var(--rose)" : "var(--ink)", cursor: it.disabled ? "not-allowed" : "pointer", opacity: it.disabled ? .45 : 1 }}
               onMouseEnter={(e) => { if (!it.disabled) e.currentTarget.style.background = "var(--sage)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}>
               {it.icon}{it.label}
             </button>
@@ -801,7 +828,7 @@ function Kebab({ items }) {
 function ConfirmModal({ title, body, confirm, danger, onClose, onConfirm }) {
   return (
     <Modal title={title} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn pri" style={danger ? { background: "var(--rose)" } : {}} onClick={onConfirm}>{confirm}</button></>}>
-      <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{body}</div>
+      <div style={{ fontSize: 15, lineHeight: 1.6 }}>{body}</div>
     </Modal>
   );
 }
@@ -819,8 +846,8 @@ function Clients({ state, dispatch, setSelClient }) {
   return (
     <>
       <div className="row" style={{ marginBottom: 14, alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div className="muted" style={{ fontSize: 13.5 }}>{rows.length} clients · {state.clients.filter((c) => c.type === "patient" && !c.archived).length} doctor-referred patients</div>
-        {archivedCount > 0 && <label className="row" style={{ gap: 6, fontSize: 12.5, cursor: "pointer" }}><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived ({archivedCount})</label>}
+        <div className="muted" style={{ fontSize: 15 }}>{rows.length} clients · {state.clients.filter((c) => c.type === "patient" && !c.archived).length} doctor-referred patients</div>
+        {archivedCount > 0 && <label className="row" style={{ gap: 6, fontSize: 14, cursor: "pointer" }}><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived ({archivedCount})</label>}
         <button className="btn pri" style={{ marginLeft: "auto" }} onClick={() => setAdding(true)}><Plus size={15} /> New client</button>
       </div>
       <div className="card">
@@ -834,7 +861,7 @@ function Clients({ state, dispatch, setSelClient }) {
             { key: "balance", label: "Balance", options: [{ value: "owing", label: "Owes balance" }, { value: "clear", label: "Clear" }], test: (c, v) => (v === "owing") === !!c.balance },
           ]}
           columns={[
-            { key: "name", label: "Client", filterVal: (c) => `${c.name} ${c.phone}`, sortVal: (c) => c.name, render: (c) => (<div className="row" style={{ gap: 10 }}><div className="avatar" style={{ background: c.archived ? "var(--muted-2)" : "var(--pine-soft)", width: 30, height: 30, fontSize: 11 }}>{initials(c.name)}</div><div><div style={{ fontWeight: 600 }}>{c.name} {c.archived && <span className="pill cxl" style={{ marginLeft: 6 }}>Archived</span>}</div><div className="muted" style={{ fontSize: 12 }}>{c.phone} · since {c.since}</div></div></div>) },
+            { key: "name", label: "Client", filterVal: (c) => `${c.name} ${c.phone}`, sortVal: (c) => c.name, render: (c) => (<div className="row" style={{ gap: 10 }}><div className="avatar" style={{ background: c.archived ? "var(--muted-2)" : "var(--pine-soft)", width: 30, height: 30, fontSize: 13 }}>{initials(c.name)}</div><div><div style={{ fontWeight: 600 }}>{c.name} {c.archived && <span className="pill cxl" style={{ marginLeft: 6 }}>Archived</span>}</div><div className="muted" style={{ fontSize: 14 }}>{c.phone} · since {c.since}</div></div></div>) },
             { key: "type", label: "Type", render: (c) => c.type === "patient" ? <span className="pill c1099">Patient</span> : <span className="pill w2">Client</span> },
             { key: "modality", label: "Preferred modality" },
             { key: "intake", label: "Intake", sortVal: (c) => (c.intake ? 1 : 0), render: (c) => c.intake ? <span className="pill done">Complete</span> : <span className="pill due">Pending</span> },
@@ -898,7 +925,7 @@ function PocModal({ client: c, onClose, onSave }) {
         <div className="field"><label>Authorized visits <span className="muted">(optional)</span></label><input className="inp" type="number" min="0" value={f.visitsAuthorized} onChange={(e) => up("visitsAuthorized", e.target.value)} /></div>
         <div className="field"><label>Visits already completed</label><input className="inp" type="number" min="0" value={f.visitsUsed} onChange={(e) => up("visitsUsed", e.target.value)} /></div>
       </div>
-      {!valid && f.end && f.start && <div className="muted" style={{ color: "var(--rose)", fontSize: 12.5, marginTop: 6 }}>The end date needs to be after the start date.</div>}
+      {!valid && f.end && f.start && <div className="muted" style={{ color: "var(--rose)", fontSize: 14, marginTop: 6 }}>The end date needs to be after the start date.</div>}
       <div className="field" style={{ marginTop: 10 }}><label>Goals</label><textarea className="ta" style={{ minHeight: 70 }} value={f.goals} onChange={(e) => up("goals", e.target.value)} placeholder="Measurable goals for this plan of care" /></div>
       <div className="tiny" style={{ margin: "16px 0 8px" }}>Documentation rules</div>
       <div className="poc-rule">
@@ -945,11 +972,11 @@ function PlanOfCareCard({ c, dispatch }) {
           {s.authorized ? <div className="poc-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (s.used / s.authorized) * 100)}%` }} /></div> : null}
           {s.every > 0 && <div className="statline"><span className="muted">Next progress note</span><span style={{ fontWeight: 600 }}>Visit {s.nextProgressAt}{s.progressDue ? " · due next visit" : ` · in ${s.nextProgressAt - s.used} visit${s.nextProgressAt - s.used === 1 ? "" : "s"}`}</span></div>}
           {s.rules.reevalAtEnd && <div className="statline"><span className="muted">Re-evaluation</span><span style={{ fontWeight: 600 }}>{s.reevalDone ? `Done ${fmtDay(s.poc.reevalDoneAt)}` : `By ${fmtDay(s.poc.end)} · reminder from ${fmtDay(s.reminderFrom)}`}</span></div>}
-          {s.poc.goals && <div style={{ marginTop: 10 }}><div className="muted" style={{ fontSize: 12.5, marginBottom: 3 }}>Goals</div><div style={{ fontSize: 13.5, lineHeight: 1.55 }}>{s.poc.goals}</div></div>}
-          <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>Rules: {s.every > 0 ? `progress note every ${s.every} visits` : "no progress-note rule"}{s.rules.reevalAtEnd ? ` · re-evaluation reminder ${s.lead} days before the end date` : ""}</div>
+          {s.poc.goals && <div style={{ marginTop: 10 }}><div className="muted" style={{ fontSize: 14, marginBottom: 3 }}>Goals</div><div style={{ fontSize: 15, lineHeight: 1.55 }}>{s.poc.goals}</div></div>}
+          <div className="muted" style={{ fontSize: 14, marginTop: 10 }}>Rules: {s.every > 0 ? `progress note every ${s.every} visits` : "no progress-note rule"}{s.rules.reevalAtEnd ? ` · re-evaluation reminder ${s.lead} days before the end date` : ""}</div>
         </>
       )}
-      {c.plan && <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}><div className="muted" style={{ fontSize: 12.5, marginBottom: 3 }}>Treatment plan</div><div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.plan}</div></div>}
+      {c.plan && <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}><div className="muted" style={{ fontSize: 14, marginBottom: 3 }}>Treatment plan</div><div style={{ fontSize: 15, lineHeight: 1.6 }}>{c.plan}</div></div>}
       {editing && <PocModal client={c} onClose={() => setEditing(false)} onSave={(poc) => { dispatch({ type: "SET_POC", id: c.id, poc }); setEditing(false); }} />}
     </section>
   );
@@ -997,7 +1024,7 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
           <section className="card pad">
             <div className="row" style={{ gap: 14, marginBottom: 14 }}>
               <div className="avatar" style={{ background: "var(--pine)", width: 52, height: 52, fontSize: 18 }}>{initials(c.name)}</div>
-              <div><div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{c.name}</div><div className="muted" style={{ fontSize: 13 }}>{c.phone}{c.email ? ` · ${c.email}` : ""} · client since {c.since}</div></div>
+              <div><div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{c.name}</div><div className="muted" style={{ fontSize: 15 }}>{c.phone}{c.email ? ` · ${c.email}` : ""} · client since {c.since}</div></div>
             </div>
             {c.flags && c.flags.length > 0 && <div style={{ marginBottom: 12 }}>{c.flags.map((fl) => <span key={fl} className="pill cxl" style={{ marginRight: 6 }}><AlertTriangle size={11} /> {fl}</span>)}</div>}
             <div className="statline"><span className="muted">Type</span>{c.type === "patient" ? <span className="pill c1099">Patient · doctor-referred</span> : <span className="pill w2">Client · walk-in</span>}</div>
@@ -1027,7 +1054,7 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
               <div className="row" style={{ gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <span className="pill">{fnd.length} finding{fnd.length === 1 ? "" : "s"}</span>
                 {["severe", "mod", "mild"].map((k) => sevCount[k] ? <span key={k} className="pill" style={{ background: SEV[k].bg, color: SEV[k].c }}>{sevCount[k]} {SEV[k].t.toLowerCase()}</span> : null)}
-                <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>{sessions.length} session{sessions.length === 1 ? "" : "s"} · last {sessions[0] && sessions[0][0]}</span>
+                <span className="muted" style={{ fontSize: 14, marginLeft: "auto" }}>{sessions.length} session{sessions.length === 1 ? "" : "s"} · last {sessions[0] && sessions[0][0]}</span>
               </div>
               {sessions.map(([d, list]) => (
                 <div key={d} style={{ marginBottom: 8 }}>
@@ -1036,8 +1063,8 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
                     <div key={f.id} className="row" style={{ gap: 8, padding: "7px 0", borderBottom: "1px dashed var(--border)", alignItems: "flex-start" }}>
                       <span className="pill" style={{ background: (SEV[f.sev] || SEV.mild).bg, color: (SEV[f.sev] || SEV.mild).c, flex: "0 0 auto" }}>{(SEV[f.sev] || SEV.mild).t}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{f.label}{f.side && f.side !== "midline" ? ` (${f.side})` : ""}{f.pain != null && <span className="muted" style={{ fontWeight: 400 }}> · pain {f.pain}/10</span>}</div>
-                        {f.note && <div className="muted" style={{ fontSize: 12.5 }}>{f.note}</div>}
+                        <div style={{ fontSize: 15, fontWeight: 600 }}>{f.label}{f.side && f.side !== "midline" ? ` (${f.side})` : ""}{f.pain != null && <span className="muted" style={{ fontWeight: 400 }}> · pain {f.pain}/10</span>}</div>
+                        {f.note && <div className="muted" style={{ fontSize: 14 }}>{f.note}</div>}
                       </div>
                     </div>
                   ))}
@@ -1076,7 +1103,7 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
 /* ----------------------------- SOAP ----------------------------- */
 function SoapList({ state, prov, client, open }) {
   const [creating, setCreating] = useState(false);
-  const [nf, setNf] = useState({ clientId: state.clients[0].id, providerId: state.providers[0].id, modality: "Deep Tissue" });
+  const [nf, setNf] = useState({ clientId: state.clients[0]?.id ?? "", providerId: state.providers[0].id, modality: "Deep Tissue" });
   const needNote = state.appts.filter((a) => a.status === "done" && !state.notes.some((n) => n.apptId === a.id));
   const drafts = needNote.map((a) => ({ id: "draft-" + a.id, apptId: a.id, clientId: a.clientId, providerId: a.providerId, date: todayISO, modality: a.svc, kind: pocStatus(client(a.clientId), todayISO)?.recommended || "daily", s: "", o: "", a: "", p: "", locked: false }));
   const all = [...drafts, ...state.notes];
@@ -1084,8 +1111,8 @@ function SoapList({ state, prov, client, open }) {
   return (
     <>
       <div className="row" style={{ marginBottom: 14, alignItems: "center" }}>
-        <div className="muted" style={{ fontSize: 13.5 }}>{needNote.length} completed visit{needNote.length === 1 ? "" : "s"} still need{needNote.length === 1 ? "s" : ""} a note</div>
-        <button className="btn pri" style={{ marginLeft: "auto" }} onClick={() => setCreating(true)}><Plus size={15} /> New note</button>
+        <div className="muted" style={{ fontSize: 15 }}>{needNote.length} completed visit{needNote.length === 1 ? "" : "s"} still need{needNote.length === 1 ? "s" : ""} a note</div>
+        <button className="btn pri" style={{ marginLeft: "auto" }} disabled={!state.clients.length} title={state.clients.length ? undefined : "Add a client first"} onClick={() => setCreating(true)}><Plus size={15} /> New note</button>
       </div>
       <div className="card">
         <DataTable rows={all} search searchPlaceholder="Search notes" onRowClick={open} defaultSort={{ key: "date", dir: "desc" }}
@@ -1177,7 +1204,7 @@ function SoapEditor({ note, state, dispatch, prov, client, back }) {
         <div className="row" style={{ marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <div>
             <div className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{c.name} · {NOTE_KINDS[draft.kind] || "Daily note"}</div>
-            <div className="muted" style={{ fontSize: 13 }}>{p.name} · {draft.date} · {draft.modality}</div>
+            <div className="muted" style={{ fontSize: 15 }}>{p.name} · {draft.date} · {draft.modality}</div>
           </div>
           <div className="spacer" />
           {draft.locked
@@ -1226,13 +1253,13 @@ function SoapEditor({ note, state, dispatch, prov, client, back }) {
 
         {!draft.locked &&
           <div className="row" style={{ gap: 10, marginTop: 4 }}>
-            <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}><ShieldCheck size={14} /> Demo lock only. A protected, permanent audit record is not created.</div>
+            <div className="muted" style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}><ShieldCheck size={14} /> Demo lock only. A protected, permanent audit record is not created.</div>
             <div className="spacer" />
             <button className="btn pri" onClick={lock} disabled={!draft.s && !draft.o}><Lock size={14} /> Lock note</button>
           </div>}
         {draft.locked &&
           <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 4 }}>
-            <div className="muted" style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6 }}><Lock size={13} /> This note is locked in this demo session only. Revision history is not stored.</div>
+            <div className="muted" style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}><Lock size={13} /> This note is locked in this demo session only. Revision history is not stored.</div>
             <button className="btn sm" style={{ marginLeft: "auto" }} onClick={unlock}><Unlock size={14} /> Unlock note</button>
           </div>}
       </div>
@@ -1264,12 +1291,12 @@ function EmailReceiptModal({ inv, state, dispatch, client, onClose }) {
       <button className="btn pri" disabled={!valid} onClick={send}><Mail size={14} /> Simulate send</button>
     </>}>
       <div className="field"><label>To</label><input className="inp" type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="client@example.com" /></div>
-      {!valid && to.length > 0 && <div style={{ color: "var(--rose)", fontSize: 12, marginTop: 4 }}>Enter a valid email address.</div>}
-      {(!c.email || to !== c.email) && valid && <label className="row" style={{ gap: 8, fontSize: 12.5, marginTop: 8, cursor: "pointer" }}><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} /> Save this email to {c.name.split(" ")[0]}’s profile</label>}
+      {!valid && to.length > 0 && <div style={{ color: "var(--rose)", fontSize: 14, marginTop: 4 }}>Enter a valid email address.</div>}
+      {(!c.email || to !== c.email) && valid && <label className="row" style={{ gap: 8, fontSize: 14, marginTop: 8, cursor: "pointer" }}><input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} /> Save this email to {c.name.split(" ")[0]}’s profile</label>}
       <div className="field" style={{ marginTop: 12 }}><label>Subject</label><input className="inp" value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
       <div className="field" style={{ marginTop: 12 }}><label>Message</label><textarea className="ta" value={msg} onChange={(e) => setMsg(e.target.value)} style={{ minHeight: 120 }} /></div>
-      <div style={{ marginTop: 12, padding: "10px 12px", background: "var(--sage)", borderRadius: 10, fontSize: 12.5, display: "flex", alignItems: "center", gap: 8 }}><FileText size={14} color="var(--pine)" /><div><b>Attached:</b> {num}.pdf<div className="muted" style={{ fontSize: 12 }}>{summary}</div></div></div>
-      <div className="muted" style={{ fontSize: 11.5, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} /> Demo only. No email is sent and no file is attached. Do not enter real patient information.</div>
+      <div style={{ marginTop: 12, padding: "10px 12px", background: "var(--sage)", borderRadius: 10, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}><FileText size={14} color="var(--pine)" /><div><b>Attached:</b> {num}.pdf<div className="muted" style={{ fontSize: 14 }}>{summary}</div></div></div>
+      <div className="muted" style={{ fontSize: 13, marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}><ShieldCheck size={13} /> Demo only. No email is sent and no file is attached. Do not enter real patient information.</div>
     </Modal>
   );
 }
@@ -1291,12 +1318,12 @@ function InvoiceDetail({ inv, state, dispatch, client, prov, openPay, onBack, on
     ...(inv.status === "void" ? [{ t: "—", l: "Voided", s: "Removed from receivables" }] : []),
     ...(inv.status === "due" ? [{ t: "Now", l: "Awaiting payment", s: "Charge the card on file or collect in person" }] : []),
   ];
-  const Row = ({ k, v, last }) => <div className="row" style={{ justifyContent: "space-between", padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--border)", gap: 12 }}><span className="muted" style={{ fontSize: 13 }}>{k}</span><span style={{ fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span></div>;
+  const Row = ({ k, v, last }) => <div className="row" style={{ justifyContent: "space-between", padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--border)", gap: 12 }}><span className="muted" style={{ fontSize: 15 }}>{k}</span><span style={{ fontSize: 15, fontWeight: 600, textAlign: "right" }}>{v}</span></div>;
   return (
     <>
       <div className="row" style={{ gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn ghost sm" onClick={onBack}><ArrowLeft size={14} /> Payments</button>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>Invoice {num}</div>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>Invoice {num}</div>
         {pill}
         {inv.receiptSentAt && <span className="pill done"><Mail size={11} /> Emailed {inv.receiptSentAt}</span>}
         <div className="row" style={{ gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
@@ -1316,24 +1343,24 @@ function InvoiceDetail({ inv, state, dispatch, client, prov, openPay, onBack, on
             <div style={{ background: "#fff", width: "100%", maxWidth: 520, boxShadow: "0 10px 30px rgba(0,0,0,.12)", padding: "40px 44px", fontFamily: "Georgia, 'Times New Roman', serif", color: "#222", position: "relative" }}>
               {inv.status === "void" && <div style={{ position: "absolute", top: 34, right: 30, transform: "rotate(-14deg)", border: "3px solid #A23C37", color: "#A23C37", padding: "4px 14px", fontWeight: 700, letterSpacing: 3, fontSize: 20, opacity: .8 }}>VOID</div>}
               <div style={{ fontSize: 18, fontWeight: 600 }}>{state.practice.name}</div>
-              <div style={{ fontSize: 12, color: "#666", marginBottom: 22 }}>{state.practice.city}</div>
+              <div style={{ fontSize: 14, color: "#666", marginBottom: 22 }}>{state.practice.city}</div>
               <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18 }}>
-                <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#888" }}>{inv.status === "paid" ? "Receipt" : "Invoice"}</div>
-                <div style={{ textAlign: "right", fontSize: 12, color: "#666" }}>{num}<br />{inv.date}</div>
+                <div style={{ fontSize: 14, letterSpacing: 2, textTransform: "uppercase", color: "#888" }}>{inv.status === "paid" ? "Receipt" : "Invoice"}</div>
+                <div style={{ textAlign: "right", fontSize: 14, color: "#666" }}>{num}<br />{inv.date}</div>
               </div>
-              <div style={{ fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}><b>Bill to</b><br />{c.name}{c.phone ? <><br />{c.phone}</> : null}<br /><span style={{ color: "#666" }}>Provider: {p.name}</span></div>
-              <div style={{ borderTop: "1px solid #ddd", borderBottom: "1px solid #ddd", padding: "10px 0", fontSize: 13.5 }}>
+              <div style={{ fontSize: 15, marginBottom: 18, lineHeight: 1.6 }}><b>Bill to</b><br />{c.name}{c.phone ? <><br />{c.phone}</> : null}<br /><span style={{ color: "#666" }}>Provider: {p.name}</span></div>
+              <div style={{ borderTop: "1px solid #ddd", borderBottom: "1px solid #ddd", padding: "10px 0", fontSize: 15 }}>
                 {(inv.items && inv.items.length ? inv.items : [{ name: inv.svc, qty: 1, price: inv.amount }]).map((it, k) => (
                   <div key={k} className="row" style={{ justifyContent: "space-between", padding: "4px 0" }}><span>{it.name}{it.qty > 1 ? <span style={{ color: "#888" }}> × {it.qty}</span> : null}</span><span>{money(it.price * it.qty)}</span></div>
                 ))}
                 {inv.tax > 0 && <><div className="row" style={{ justifyContent: "space-between", padding: "4px 0", color: "#666" }}><span>Subtotal</span><span>{money(inv.subtotal != null ? inv.subtotal : inv.amount - inv.tax)}</span></div><div className="row" style={{ justifyContent: "space-between", padding: "4px 0", color: "#666" }}><span>Sales tax</span><span>{money(inv.tax)}</span></div></>}
                 {inv.tip > 0 && <div className="row" style={{ justifyContent: "space-between", padding: "4px 0", color: "#666" }}><span>Gratuity</span><span>{money(inv.tip)}</span></div>}
               </div>
-              <div className="row" style={{ justifyContent: "space-between", padding: "12px 0", fontSize: 16, fontWeight: 700 }}><span>Total</span><span>{money(total)}</span></div>
-              <div style={{ fontSize: 12.5, color: "#444", marginTop: 6 }}>{inv.status === "paid" ? `Paid ${inv.paidAt} · card on file (Stripe)` : inv.status === "void" ? "This invoice has been voided." : `Balance due: ${money(inv.amount)}`}</div>
-              {inv.dnp && <div style={{ fontSize: 11.5, color: "#666", marginTop: 8 }}>Do not submit to health plan — client paid in full.</div>}
-              {state.invoiceSettings && state.invoiceSettings.note && <div style={{ marginTop: 22, fontSize: 12.5, color: "#555", fontStyle: "italic" }}>{state.invoiceSettings.note}</div>}
-              <div style={{ marginTop: 16, fontSize: 11, color: "#999" }}>Receipts and invoices contain no clinical detail.</div>
+              <div className="row" style={{ justifyContent: "space-between", padding: "12px 0", fontSize: 17, fontWeight: 700 }}><span>Total</span><span>{money(total)}</span></div>
+              <div style={{ fontSize: 14, color: "#444", marginTop: 6 }}>{inv.status === "paid" ? `Paid ${inv.paidAt} · card on file (Stripe)` : inv.status === "void" ? "This invoice has been voided." : `Balance due: ${money(inv.amount)}`}</div>
+              {inv.dnp && <div style={{ fontSize: 13, color: "#666", marginTop: 8 }}>Do not submit to health plan — client paid in full.</div>}
+              {state.invoiceSettings && state.invoiceSettings.note && <div style={{ marginTop: 22, fontSize: 14, color: "#555", fontStyle: "italic" }}>{state.invoiceSettings.note}</div>}
+              <div style={{ marginTop: 16, fontSize: 13, color: "#999" }}>Receipts and invoices contain no clinical detail.</div>
             </div>
           </div>
         </section>
@@ -1361,7 +1388,7 @@ function InvoiceDetail({ inv, state, dispatch, client, prov, openPay, onBack, on
             <div className="tiny" style={{ marginBottom: 8 }}>Billing options</div>
             <label className="row" style={{ gap: 10, alignItems: "flex-start", cursor: inv.status === "void" ? "default" : "pointer", opacity: inv.status === "void" ? .5 : 1 }}>
               <input type="checkbox" checked={!!inv.dnp} disabled={inv.status === "void"} onChange={(e) => dispatch({ type: "UPDATE_INVOICE", id: inv.id, patch: { dnp: e.target.checked } })} style={{ marginTop: 3 }} />
-              <div><div style={{ fontSize: 13.5, fontWeight: 600 }}>Do not submit to health plan</div><div className="muted" style={{ fontSize: 12.5 }}>Required when a client pays out of pocket in full and asks that this service not be disclosed to their plan (45 CFR 164.522). Enforced in claim submission.</div></div>
+              <div><div style={{ fontSize: 15, fontWeight: 600 }}>Do not submit to health plan</div><div className="muted" style={{ fontSize: 14 }}>Required when a client pays out of pocket in full and asks that this service not be disclosed to their plan (45 CFR 164.522). Enforced in claim submission.</div></div>
             </label>
           </section>
           <section className="card pad">
@@ -1369,7 +1396,7 @@ function InvoiceDetail({ inv, state, dispatch, client, prov, openPay, onBack, on
             {timeline.map((e, i) => (
               <div key={i} className="row" style={{ gap: 10, alignItems: "flex-start", paddingBottom: 10 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: i === timeline.length - 1 ? "var(--pine)" : "var(--pine-soft)", marginTop: 4, flex: "0 0 auto" }} />
-                <div><div style={{ fontSize: 13, fontWeight: 600 }}>{e.l}</div><div className="muted" style={{ fontSize: 12 }}>{e.t} · {e.s}</div></div>
+                <div><div style={{ fontSize: 15, fontWeight: 600 }}>{e.l}</div><div className="muted" style={{ fontSize: 14 }}>{e.t} · {e.s}</div></div>
               </div>
             ))}
           </section>
@@ -1394,7 +1421,7 @@ function ItemModal({ initial, type, onClose, onSave }) {
         <div className="field"><label>Category</label><input className="inp" value={f.category || ""} onChange={(e) => up("category", e.target.value)} /></div>
         <div className="field"><label>Price ($)</label><input className="inp" type="number" min="0" step="0.01" value={f.price} onChange={(e) => up("price", e.target.value)} /></div>
         {f.type === "service" && <div className="field"><label>Duration (min)</label><input className="inp" type="number" min="0" step="5" value={f.duration || ""} onChange={(e) => up("duration", e.target.value)} /></div>}
-        <label className="row" style={{ gap: 8, fontSize: 13, cursor: "pointer", gridColumn: "1 / -1" }}><input type="checkbox" checked={!!f.taxable} onChange={(e) => up("taxable", e.target.checked)} /> Taxable (sales tax applies at the invoice rate)</label>
+        <label className="row" style={{ gap: 8, fontSize: 15, cursor: "pointer", gridColumn: "1 / -1" }}><input type="checkbox" checked={!!f.taxable} onChange={(e) => up("taxable", e.target.checked)} /> Taxable (sales tax applies at the invoice rate)</label>
       </div>
     </Modal>
   );
@@ -1411,7 +1438,7 @@ function InvoiceModal({ state, initial, edit, onClose, onSave }) {
     : initial && initial.svc ? [{ catalogId: null, name: initial.svc, qty: 1, price: initial.amount || 0, taxable: false, custom: true }]
     : [catalog[0] ? fromCatalog(catalog[0]) : { catalogId: null, name: "", qty: 1, price: 0, taxable: false, custom: true }];
   const [items, setItems] = useState(initItems);
-  const [clientId, setClientId] = useState((initial && initial.clientId) || (active[0] || state.clients[0]).id);
+  const [clientId, setClientId] = useState((initial && initial.clientId) || (active[0] || state.clients[0])?.id || "");
   const [providerId, setProviderId] = useState((initial && initial.providerId) || state.providers[0].id);
   const [due, setDue] = useState((initial && initial.due) || (!edit ? addDays(todayISO, Number(settings.dueDays) || 14) : ""));
   const locked = initial && initial.clientId ? state.clients.find((c) => c.id === initial.clientId) : null;
@@ -1422,7 +1449,7 @@ function InvoiceModal({ state, initial, edit, onClose, onSave }) {
   const subtotal = items.reduce((s, it) => s + line(it), 0);
   const tax = items.reduce((s, it) => s + (it.taxable ? line(it) * rate : 0), 0);
   const total = subtotal + tax;
-  const ok = items.length > 0 && items.every((it) => it.name.trim() && Number(it.qty) > 0) && total > 0;
+  const ok = !!clientId && items.length > 0 && items.every((it) => it.name.trim() && Number(it.qty) > 0) && total > 0;
   const summary = items.length === 1 ? `${items[0].name}${Number(items[0].qty) > 1 ? ` ×${items[0].qty}` : ""}` : `${items[0].name} +${items.length - 1} more`;
   const save = () => {
     const clean = items.map((it) => ({ catalogId: it.catalogId || null, name: it.name.trim(), qty: Number(it.qty), price: Number(it.price), taxable: !!it.taxable }));
@@ -1437,7 +1464,7 @@ function InvoiceModal({ state, initial, edit, onClose, onSave }) {
         <div className="field"><label>Due date</label><input className="inp" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>
       </div>
       <div className="tiny" style={{ marginBottom: 8 }}>Line items</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 90px 32px", gap: 8, fontSize: 11, color: "var(--muted)", padding: "0 0 4px" }}><span>Service / product</span><span>Qty</span><span>Price</span><span style={{ textAlign: "right" }}>Line</span><span /></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 90px 32px", gap: 8, fontSize: 13, color: "var(--muted)", padding: "0 0 4px" }}><span>Service / product</span><span>Qty</span><span>Price</span><span style={{ textAlign: "right" }}>Line</span><span /></div>
       {items.map((it, idx) => (
         <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 90px 32px", gap: 8, alignItems: "center", marginBottom: 8 }}>
           <div>
@@ -1450,17 +1477,17 @@ function InvoiceModal({ state, initial, edit, onClose, onSave }) {
           </div>
           <input className="inp" type="number" min="1" value={it.qty} onChange={(e) => upd(idx, { qty: e.target.value })} />
           <input className="inp" type="number" min="0" step="0.01" value={it.price} onChange={(e) => upd(idx, { price: e.target.value })} />
-          <div style={{ textAlign: "right", fontWeight: 600, fontSize: 13 }}>{money(line(it))}{it.taxable && <div className="muted" style={{ fontSize: 10.5, fontWeight: 400 }}>+tax</div>}</div>
+          <div style={{ textAlign: "right", fontWeight: 600, fontSize: 15 }}>{money(line(it))}{it.taxable && <div className="muted" style={{ fontSize: 12, fontWeight: 400 }}>+tax</div>}</div>
           <button className="iconbtn" title="Remove line" disabled={items.length === 1} style={{ width: 28, height: 28, opacity: items.length === 1 ? .35 : 1 }} onClick={() => setItems(items.filter((_, i) => i !== idx))}><X size={14} /></button>
         </div>
       ))}
       <button className="btn ghost sm" onClick={() => setItems([...items, catalog[0] ? fromCatalog(catalog[0]) : { catalogId: null, name: "", qty: 1, price: 0, taxable: false, custom: true }])}><Plus size={13} /> Add line</button>
-      <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: 13 }}>
+      <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: 15 }}>
         <div className="row" style={{ justifyContent: "space-between", padding: "3px 0" }}><span className="muted">Subtotal</span><span>{money(subtotal)}</span></div>
         {tax > 0 && <div className="row" style={{ justifyContent: "space-between", padding: "3px 0" }}><span className="muted">Sales tax ({settings.taxRate}%)</span><span>{money(tax)}</span></div>}
-        <div className="row" style={{ justifyContent: "space-between", padding: "6px 0 0", fontWeight: 700, fontSize: 15 }}><span>Total</span><span style={{ color: "var(--pine)" }}>{money(total)}</span></div>
+        <div className="row" style={{ justifyContent: "space-between", padding: "6px 0 0", fontWeight: 700, fontSize: 17 }}><span>Total</span><span style={{ color: "var(--pine)" }}>{money(total)}</span></div>
       </div>
-      {catalog.length === 0 && <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>No services or products yet — add them under Invoicing › Settings.</div>}
+      {catalog.length === 0 && <div className="muted" style={{ fontSize: 14, marginTop: 10 }}>No services or products yet — add them under Invoicing › Settings.</div>}
     </Modal>
   );
 }
@@ -1485,13 +1512,13 @@ function ReminderModal({ invoices, state, dispatch, client, onClose }) {
       </div>
       {channel === "email"
         ? <div className="field"><label>Message <span className="muted">— {"{first}"} and {"{amount}"} fill per client</span></label><textarea className="ta" value={msg} onChange={(e) => setMsg(e.target.value)} style={{ minHeight: 120 }} /></div>
-        : <div><div className="tiny" style={{ marginBottom: 6 }}>SMS (content-free by policy)</div><div style={{ padding: "10px 12px", background: "var(--sage)", borderRadius: 10, fontSize: 13 }}>{smsText}</div><div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Texts never include amounts, services, or account detail — they can land on a shared lock screen. The balance is shown after login.</div></div>}
+        : <div><div className="tiny" style={{ marginBottom: 6 }}>SMS (content-free by policy)</div><div style={{ padding: "10px 12px", background: "var(--sage)", borderRadius: 10, fontSize: 15 }}>{smsText}</div><div className="muted" style={{ fontSize: 14, marginTop: 6 }}>Texts never include amounts, services, or account detail — they can land on a shared lock screen. The balance is shown after login.</div></div>}
       <div className="tiny" style={{ margin: "14px 0 6px" }}>Recipients</div>
       {groups.map((g) => (
         <div key={g.c.id} className="row" style={{ gap: 10, padding: "8px 0", borderBottom: "1px dashed var(--border)", alignItems: "center" }}>
-          <div className="avatar" style={{ background: "var(--pine-soft)", width: 28, height: 28, fontSize: 10.5 }}>{initials(g.c.name)}</div>
-          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{g.c.name}</div><div className="muted" style={{ fontSize: 12 }}>{contact(g.c) || <span style={{ color: "var(--rose)" }}>No {channel === "email" ? "email" : "phone"} on file — skipped</span>}</div></div>
-          <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700, fontSize: 13 }}>{money0(g.total)}</div><div className="muted" style={{ fontSize: 11.5 }}>{g.items.length} invoice{g.items.length === 1 ? "" : "s"}</div></div>
+          <div className="avatar" style={{ background: "var(--pine-soft)", width: 28, height: 28, fontSize: 12 }}>{initials(g.c.name)}</div>
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 15, fontWeight: 600 }}>{g.c.name}</div><div className="muted" style={{ fontSize: 14 }}>{contact(g.c) || <span style={{ color: "var(--rose)" }}>No {channel === "email" ? "email" : "phone"} on file — skipped</span>}</div></div>
+          <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700, fontSize: 15 }}>{money0(g.total)}</div><div className="muted" style={{ fontSize: 13 }}>{g.items.length} invoice{g.items.length === 1 ? "" : "s"}</div></div>
         </div>
       ))}
     </Modal>
@@ -1610,7 +1637,7 @@ function Invoicing({ state, dispatch, client, prov, openPay, go, setSelClient, s
           <div className="sec-h" style={{ flexWrap: "wrap", gap: 8 }}>
             <h3>Accounts receivable</h3>
             <div className="row" style={{ gap: 8, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" }}>
-              <label className="row" style={{ gap: 6, fontSize: 12.5, cursor: "pointer" }}><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Show paid & void</label>
+              <label className="row" style={{ gap: 6, fontSize: 14, cursor: "pointer" }}><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Show paid & void</label>
               <button className="btn sm" onClick={exportCSV}><Download size={13} /> Export</button>
               <button className="btn sm" disabled={!due.length} onClick={() => setRemind(due)}><BellRing size={13} /> Send reminders ({due.length})</button>
               <button className="btn pri sm" onClick={() => setCreating(true)}><Plus size={13} /> New invoice</button>
@@ -1623,14 +1650,14 @@ function Invoicing({ state, dispatch, client, prov, openPay, go, setSelClient, s
               ...(showClosed ? [{ key: "status", label: "Status", options: [{ value: "due", label: "Due" }, { value: "paid", label: "Paid" }, { value: "void", label: "Void" }], test: (i, v) => i.status === v }] : []),
             ]}
             columns={[
-              { key: "num", label: "Invoice", sortVal: (i) => i.id, render: (i) => <span className="muted" style={{ fontSize: 12 }}>{numOf(i)}</span> },
+              { key: "num", label: "Invoice", sortVal: (i) => i.id, render: (i) => <span className="muted" style={{ fontSize: 14 }}>{numOf(i)}</span> },
               { key: "client", label: "Client", sortVal: (i) => client(i.clientId).name, render: (i) => <span style={{ fontWeight: 600 }}>{client(i.clientId).name}</span> },
               { key: "svc", label: "Service", render: (i) => <span className="muted">{i.svc}</span> },
               { key: "amount", label: "Amount", align: "num", render: (i) => money0(i.amount) },
               { key: "date", label: "Date", align: "num" },
               { key: "age", label: "Age", align: "num", render: (i) => `${i.age}d` },
               { key: "status", label: "Status", sortVal: (i) => (i.status === "due" ? i.age : -1), render: (i) => statusPill(i) },
-              { key: "lastReminderAt", label: "Reminded", render: (i) => i.lastReminderAt ? <span className="muted" style={{ fontSize: 12 }}>{i.lastReminderAt} · ×{(i.reminders || []).length}</span> : <span className="muted">—</span> },
+              { key: "lastReminderAt", label: "Reminded", render: (i) => i.lastReminderAt ? <span className="muted" style={{ fontSize: 14 }}>{i.lastReminderAt} · ×{(i.reminders || []).length}</span> : <span className="muted">—</span> },
               { key: "act", label: "", sortable: false, render: (i) => <div className="row" style={{ gap: 6, justifyContent: "flex-end", alignItems: "center" }} onClick={(e) => e.stopPropagation()}>{i.status === "due" && <button className="btn pri sm" onClick={() => openPay(i.id)}>Collect</button>}<Kebab items={arMenu(i)} /><ChevronRight size={16} color="var(--muted-2)" /></div> },
             ]} />
         </div>
@@ -1663,7 +1690,7 @@ function Invoicing({ state, dispatch, client, prov, openPay, go, setSelClient, s
                   { label: "Delete", icon: <Trash2 size={14} />, danger: true, onClick: () => setDelItem(it) },
                 ]} /></div> },
               ]} />
-            <div className="muted" style={{ fontSize: 12, padding: "10px 18px 14px" }}>Archived items stay on existing invoices but disappear from the dropdowns. Services also populate the appointment booking form.</div>
+            <div className="muted" style={{ fontSize: 14, padding: "10px 18px 14px" }}>Archived items stay on existing invoices but disappear from the dropdowns. Services also populate the appointment booking form.</div>
           </div>
           <section className="card pad">
             <div className="tiny" style={{ marginBottom: 10 }}>Invoice defaults</div>
@@ -1678,7 +1705,7 @@ function Invoicing({ state, dispatch, client, prov, openPay, go, setSelClient, s
               <button className="btn pri" onClick={() => { dispatch({ type: "UPDATE_INVOICE_SETTINGS", patch: { prefix: sf.prefix || "INV", dueDays: Number(sf.dueDays) || 0, taxRate: Number(sf.taxRate) || 0, note: sf.note } }); setSfSaved(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })); }}><Check size={14} /> Save defaults</button>
               {sfSaved && <span className="savechip"><CheckCircle2 size={14} /> Saved {sfSaved}</span>}
             </div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>Tax applies only to items marked taxable — typically retail products, not massage services. Check your state rules before enabling.</div>
+            <div className="muted" style={{ fontSize: 14, marginTop: 12 }}>Tax applies only to items marked taxable — typically retail products, not massage services. Check your state rules before enabling.</div>
           </section>
         </div>
       ) : (
@@ -1690,7 +1717,7 @@ function Invoicing({ state, dispatch, client, prov, openPay, go, setSelClient, s
               { key: "category", label: "Category", options: [...new Set(state.payables.map((p) => p.category || "Other"))].map((c) => ({ value: c, label: c })), test: (p, v) => (p.category || "Other") === v },
             ]}
             columns={[
-              { key: "vendor", label: "Vendor", render: (p) => <span style={{ fontWeight: 600 }}>{p.vendor}{p.notes ? <div className="muted" style={{ fontSize: 12, fontWeight: 400 }}>{p.notes}</div> : null}</span> },
+              { key: "vendor", label: "Vendor", render: (p) => <span style={{ fontWeight: 600 }}>{p.vendor}{p.notes ? <div className="muted" style={{ fontSize: 14, fontWeight: 400 }}>{p.notes}</div> : null}</span> },
               { key: "category", label: "Category", render: (p) => <span className="pill">{p.category || "Other"}</span> },
               { key: "amount", label: "Amount", align: "num", render: (p) => money0(p.amount) },
               { key: "due", label: "Due", render: (p) => <span className="muted">{p.due}</span> },
@@ -1771,7 +1798,7 @@ function PayModal({ inv, client, onClose, onPay }) {
           ))}
         </div>
       </div>
-      <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}><ShieldCheck size={13} /> Processed via Stripe Healthcare. Receipt sent to client portal.</div>
+      <div className="muted" style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}><ShieldCheck size={13} /> Processed via Stripe Healthcare. Receipt sent to client portal.</div>
     </Modal>
   );
 }
@@ -1780,7 +1807,7 @@ function PayModal({ inv, client, onClose, onPay }) {
 function Messages({ state, dispatch, selThread, setSelThread }) {
   const [text, setText] = useState("");
   const [creating, setCreating] = useState(false);
-  const [pick, setPick] = useState("c:" + (state.clients.find((c) => !c.archived) || state.clients[0]).id);
+  const [pick, setPick] = useState("c:" + ((state.clients.find((c) => !c.archived) || state.clients[0])?.id ?? ""));
   const [pendingFiles, setPendingFiles] = useState([]);
   const [pendingDel, setPendingDel] = useState(null);
   const [confirmThread, setConfirmThread] = useState(false);
@@ -1811,7 +1838,7 @@ function Messages({ state, dispatch, selThread, setSelThread }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
       {files.map((f) => isImg(f)
         ? <img key={f.id} src={f.url} alt={f.name} title={f.name} onClick={() => setLightbox(f)} style={{ maxWidth: 200, maxHeight: 150, borderRadius: 8, display: "block", cursor: "zoom-in", border: "1px solid rgba(0,0,0,.08)" }} />
-        : <a key={f.id} href={f.url || undefined} download={f.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: me ? "rgba(255,255,255,.16)" : "#fff", color: "inherit", textDecoration: "none", fontSize: 12.5, border: me ? "none" : "1px solid var(--border)" }}><FileIcon size={14} />{f.name}<span style={{ opacity: .65, fontSize: 11 }}>{fmtSize(f.size)}</span><Download size={12} style={{ opacity: .7 }} /></a>)}
+        : <a key={f.id} href={f.url || undefined} download={f.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: me ? "rgba(255,255,255,.16)" : "#fff", color: "inherit", textDecoration: "none", fontSize: 14, border: me ? "none" : "1px solid var(--border)" }}><FileIcon size={14} />{f.name}<span style={{ opacity: .65, fontSize: 13 }}>{fmtSize(f.size)}</span><Download size={12} style={{ opacity: .7 }} /></a>)}
     </div>
   );
 
@@ -1827,11 +1854,11 @@ function Messages({ state, dispatch, selThread, setSelThread }) {
             return (
               <button key={th.id} onClick={() => { setSelThread(th.id); setPendingDel(null); }} style={{ display: "block", width: "100%", textAlign: "left", border: "none", borderTop: "1px solid var(--border)", background: t && t.id === th.id ? "var(--sage)" : "#fff", padding: "12px 16px", cursor: "pointer" }}>
                 <div className="row" style={{ gap: 8 }}>
-                  <div className="avatar" style={{ width: 28, height: 28, fontSize: 10.5, background: th.kind === "provider" ? "var(--gold)" : "var(--pine-soft)" }}>{initials(th.name)}</div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{th.name}</div>
+                  <div className="avatar" style={{ width: 28, height: 28, fontSize: 12, background: th.kind === "provider" ? "var(--gold)" : "var(--pine-soft)" }}>{initials(th.name)}</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>{th.name}</div>
                   {unread && <span style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} />}
                 </div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview}</div>
+                <div className="muted" style={{ fontSize: 14, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview}</div>
               </button>
             );
           })}
@@ -1845,18 +1872,18 @@ function Messages({ state, dispatch, selThread, setSelThread }) {
                 <button className="btn ghost sm" title="Delete conversation" style={{ color: "var(--rose)" }} onClick={() => setConfirmThread(true)}><Trash2 size={13} /> Delete</button>
               </div>
               <div style={{ flex: 1, padding: 18, display: "flex", flexDirection: "column", gap: 10, overflow: "auto", background: dragOver ? "var(--sage)" : "transparent", transition: "background .15s" }}>
-                {dragOver && <div className="muted" style={{ textAlign: "center", fontSize: 13, padding: 8 }}>Drop files to attach</div>}
-                {t.msgs.length === 0 && !dragOver && <div className="muted" style={{ fontSize: 13 }}>Demo conversation only. Messages and files stay in browser memory; no secure messaging service is connected.</div>}
+                {dragOver && <div className="muted" style={{ textAlign: "center", fontSize: 15, padding: 8 }}>Drop files to attach</div>}
+                {t.msgs.length === 0 && !dragOver && <div className="muted" style={{ fontSize: 15 }}>Demo conversation only. Messages and files stay in browser memory; no secure messaging service is connected.</div>}
                 {t.msgs.map((m, i) => {
                   const me = m.from === "me";
                   return (
                     <div key={m.id || i} style={{ alignSelf: me ? "flex-end" : "flex-start", maxWidth: "76%", display: "flex", gap: 6, alignItems: "flex-end", flexDirection: me ? "row-reverse" : "row" }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ background: me ? "var(--pine)" : "var(--sage)", color: me ? "#fff" : "var(--ink)", padding: "9px 13px", borderRadius: 13, fontSize: 13.5, lineHeight: 1.45 }}>
+                        <div style={{ background: me ? "var(--pine)" : "var(--sage)", color: me ? "#fff" : "var(--ink)", padding: "9px 13px", borderRadius: 13, fontSize: 15, lineHeight: 1.45 }}>
                           {m.text}
                           {m.files && m.files.length > 0 && renderFiles(m.files, me)}
                         </div>
-                        <div className="muted" style={{ fontSize: 11, marginTop: 3, textAlign: me ? "right" : "left" }}>{m.t}</div>
+                        <div className="muted" style={{ fontSize: 13, marginTop: 3, textAlign: me ? "right" : "left" }}>{m.t}</div>
                       </div>
                       {me && <button className="iconbtn" title="Unsend message" onClick={() => setPendingDel(i)} style={{ width: 26, height: 26, opacity: .55, marginBottom: 18, flex: "0 0 auto" }}><MessageSquareX size={14} /></button>}
                     </div>
@@ -1867,7 +1894,7 @@ function Messages({ state, dispatch, selThread, setSelThread }) {
                 <div className="row" style={{ gap: 6, padding: "10px 14px 0", flexWrap: "wrap" }}>
                   {pendingFiles.map((f) => (
                     <span key={f.id} className="pill" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--sage)", color: "var(--ink)" }}>
-                      {f.type.startsWith("image/") ? <ImageIcon size={12} /> : <FileIcon size={12} />}{f.name}<span className="muted" style={{ fontSize: 11 }}>{fmtSize(f.size)}</span>
+                      {f.type.startsWith("image/") ? <ImageIcon size={12} /> : <FileIcon size={12} />}{f.name}<span className="muted" style={{ fontSize: 13 }}>{fmtSize(f.size)}</span>
                       <button className="iconbtn" style={{ width: 18, height: 18 }} title="Remove attachment" onClick={() => setPendingFiles((p) => p.filter((x) => x.id !== f.id))}><X size={11} /></button>
                     </span>
                   ))}
@@ -1943,7 +1970,7 @@ function Payroll({ state, dispatch, prov, setKeypad }) {
   return (
     <>
       <div className="row" style={{ marginBottom: 16, gap: 10, flexWrap: "wrap" }}>
-        <div><div className="tiny">Pay period</div><div style={{ fontWeight: 600, fontSize: 14 }}>{period}</div></div>
+        <div><div className="tiny">Pay period</div><div style={{ fontWeight: 600, fontSize: 16 }}>{period}</div></div>
         <div className="spacer" />
         <button className="btn" onClick={exportCSV}><Download size={15} /> Export CSV</button>
         <button className="btn" onClick={exportQB}><Download size={15} /> QuickBooks (IIF)</button>
@@ -1954,8 +1981,8 @@ function Payroll({ state, dispatch, prov, setKeypad }) {
         {state.providers.map((p) => (
           <div key={p.id} className="card pad">
             <div className="row" style={{ gap: 10, marginBottom: 10 }}>
-              <div className="avatar" style={{ background: p.color, width: 36, height: 36, fontSize: 13 }}>{initials(p.name)}</div>
-              <div><div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div><div className="muted" style={{ fontSize: 12 }}>{p.role} · {p.pay}</div></div>
+              <div className="avatar" style={{ background: p.color, width: 36, height: 36, fontSize: 15 }}>{initials(p.name)}</div>
+              <div><div style={{ fontWeight: 600, fontSize: 15 }}>{p.name}</div><div className="muted" style={{ fontSize: 14 }}>{p.role} · {p.pay}</div></div>
             </div>
             <div className="row" style={{ gap: 6, marginBottom: 10 }}>
               <span className={`pill ${p.type === "W2" ? "w2" : "c1099"}`}>{p.type === "W2" ? "W-2 Employee" : "1099 Contractor"}</span>
@@ -1976,7 +2003,7 @@ function Payroll({ state, dispatch, prov, setKeypad }) {
             { key: "type", label: "Class", sortVal: (r) => r.p.type, render: (r) => <span className={`pill ${r.p.type === "W2" ? "w2" : "c1099"}`}>{r.p.type}</span> },
             { key: "hours", label: "Hours", align: "num", render: (r) => r.hours.toFixed(1) },
             { key: "hourly", label: "Hourly", align: "num", render: (r) => money0(r.hourly) },
-            { key: "commission", label: "Commission", align: "num", render: (r) => <>{money0(r.commission)} <span className="muted" style={{ fontSize: 11 }}>({r.visits} visits)</span></> },
+            { key: "commission", label: "Commission", align: "num", render: (r) => <>{money0(r.commission)} <span className="muted" style={{ fontSize: 13 }}>({r.visits} visits)</span></> },
             { key: "tips", label: "Tips", align: "num", render: (r) => money0(r.tips) },
             { key: "gross", label: "Gross", align: "num", render: (r) => <span style={{ fontWeight: 700 }}>{money0(r.gross)}</span> },
           ]}
@@ -2006,13 +2033,13 @@ function Keypad({ provider, onClose, onSuccess }) {
   };
   return (
     <Modal title={`${provider.clockedIn ? "Clock out" : "Clock in"} — ${provider.name}`} onClose={onClose}>
-      <div className="muted" style={{ textAlign: "center", fontSize: 12.5, marginBottom: 4 }}>Enter your 4-digit PIN {err && <span style={{ color: "var(--rose)" }}>· incorrect, try again</span>}</div>
+      <div className="muted" style={{ textAlign: "center", fontSize: 14, marginBottom: 4 }}>Enter your 4-digit PIN {err && <span style={{ color: "var(--rose)" }}>· incorrect, try again</span>}</div>
       <div className="pindots">{[0, 1, 2, 3].map((i) => <span key={i} className={pin.length > i ? "f" : ""} />)}</div>
       <div className="keypad">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} onClick={() => press(String(d))}>{d}</button>)}
-        <button onClick={() => setPin("")} style={{ fontSize: 13, color: "var(--muted)" }}>Clear</button>
+        <button onClick={() => setPin("")} style={{ fontSize: 15, color: "var(--muted)" }}>Clear</button>
         <button onClick={() => press("0")}>0</button>
-        <button onClick={() => setPin(pin.slice(0, -1))} style={{ fontSize: 13, color: "var(--muted)" }}>←</button>
+        <button onClick={() => setPin(pin.slice(0, -1))} style={{ fontSize: 15, color: "var(--muted)" }}>←</button>
       </div>
     </Modal>
   );
@@ -2042,14 +2069,14 @@ function Reports({ state }) {
       <div className="two" style={{ marginBottom: 16 }}>
         <section className="card pad">
           <div className="tiny" style={{ marginBottom: 4 }}>Monthly revenue vs operating cost</div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>Breakeven at {money0(14850)}/mo · 205 users target</div>
+          <div className="muted" style={{ fontSize: 14, marginBottom: 12 }}>Breakeven at {money0(14850)}/mo · 205 users target</div>
           <ResponsiveContainer width="100%" height={210}>
             <AreaChart data={rev} margin={{ left: -16, right: 6, top: 6 }}>
               <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#14554a" stopOpacity={0.25} /><stop offset="100%" stopColor="#14554a" stopOpacity={0} /></linearGradient></defs>
               <CartesianGrid stroke="#eef2ee" vertical={false} />
-              <XAxis dataKey="m" tick={{ fontSize: 12, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#8a988f" }} axisLine={false} tickLine={false} tickFormatter={(v) => "$" + v / 1000 + "k"} />
-              <Tooltip formatter={(v) => money0(v)} contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 12 }} />
+              <XAxis dataKey="m" tick={{ fontSize: 14, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: "#8a988f" }} axisLine={false} tickLine={false} tickFormatter={(v) => "$" + v / 1000 + "k"} />
+              <Tooltip formatter={(v) => money0(v)} contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 14 }} />
               <Area type="monotone" dataKey="rev" stroke="#14554a" strokeWidth={2.4} fill="url(#g)" />
               <Area type="monotone" dataKey="target" stroke="#b88a32" strokeWidth={1.4} strokeDasharray="5 4" fill="none" />
             </AreaChart>
@@ -2066,7 +2093,7 @@ function Reports({ state }) {
               <text x="64" y="60" textAnchor="middle" fontSize="26" fontWeight="600" fill="#16211f" fontFamily="Fraunces, serif">{compliance}%</text>
               <text x="64" y="80" textAnchor="middle" fontSize="10" fill="#8a988f">locked</text>
             </svg>
-            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 15, lineHeight: 1.6 }}>
               <div style={{ fontWeight: 600 }}>Completed visits documented</div>
               <div className="muted">Audit-ready, timestamped SOAP notes locked against completed appointments. Lock a pending note to raise this figure.</div>
             </div>
@@ -2080,9 +2107,9 @@ function Reports({ state }) {
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={state.utilByRoom} margin={{ left: -20, right: 6 }}>
               <CartesianGrid stroke="#eef2ee" vertical={false} />
-              <XAxis dataKey="room" tick={{ fontSize: 12, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#8a988f" }} axisLine={false} tickLine={false} tickFormatter={(v) => v + "%"} />
-              <Tooltip formatter={(v) => v + "%"} contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 12 }} />
+              <XAxis dataKey="room" tick={{ fontSize: 14, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: "#8a988f" }} axisLine={false} tickLine={false} tickFormatter={(v) => v + "%"} />
+              <Tooltip formatter={(v) => v + "%"} contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 14 }} />
               <Bar dataKey="util" fill="#2c7264" radius={[6, 6, 0, 0]} barSize={42} />
             </BarChart>
           </ResponsiveContainer>
@@ -2092,9 +2119,9 @@ function Reports({ state }) {
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={cxl} margin={{ left: -20, right: 6 }}>
               <CartesianGrid stroke="#eef2ee" vertical={false} />
-              <XAxis dataKey="m" tick={{ fontSize: 12, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#8a988f" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 12 }} />
+              <XAxis dataKey="m" tick={{ fontSize: 14, fill: "#5f6f6a" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: "#8a988f" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e3e8e2", fontSize: 14 }} />
               <Bar dataKey="cxl" fill="#b88a32" radius={[6, 6, 0, 0]} barSize={42} />
             </BarChart>
           </ResponsiveContainer>
@@ -2156,10 +2183,10 @@ function SettingsView({ state, dispatch }) {
         </section>
         <section className="card pad">
           <div className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Your subscription</div>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Simple, transparent pricing. No tiers, no à la carte upsells, no revenue share.</div>
+          <div className="muted" style={{ fontSize: 15, marginBottom: 16 }}>Simple, transparent pricing. No tiers, no à la carte upsells, no revenue share.</div>
           <div className="statline"><span>Base subscription</span><span className="num">{money0(pr.plan.base)}/mo</span></div>
           <div className="statline"><span>Additional providers ({extra} × ${pr.plan.perProvider})</span><span className="num">{money0(extra * pr.plan.perProvider)}/mo</span></div>
-          <div className="statline" style={{ fontWeight: 700, fontSize: 15, borderBottom: "none", paddingTop: 12 }}><span>Total</span><span className="serif num" style={{ color: "var(--pine)" }}>{money0(monthly)}/mo</span></div>
+          <div className="statline" style={{ fontWeight: 700, fontSize: 17, borderBottom: "none", paddingTop: 12 }}><span>Total</span><span className="serif num" style={{ color: "var(--pine)" }}>{money0(monthly)}/mo</span></div>
           <div className="divider" />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {["No tiers", "No upsells", "No revenue share", "No feature creep"].map((x) => <span key={x} className="pill done"><Check size={11} /> {x}</span>)}
@@ -2171,7 +2198,7 @@ function SettingsView({ state, dispatch }) {
         <div className="sec-h"><h3>Team</h3><button className="btn pri sm" onClick={() => setEditP("new")}><Plus size={13} /> Add provider</button></div>
         {state.providers.map((p) => (
           <div className="appt" key={p.id}>
-            <div className="avatar" style={{ background: p.color, width: 34, height: 34, fontSize: 12 }}>{initials(p.name)}</div>
+            <div className="avatar" style={{ background: p.color, width: 34, height: 34, fontSize: 14 }}>{initials(p.name)}</div>
             <div className="meta">
               <div className="nm">{p.name} <span className={`pill ${p.type === "W2" ? "w2" : "c1099"}`} style={{ marginLeft: 6 }}>{p.type === "W2" ? "W-2" : "1099"}</span></div>
               <div className="det">{p.role} · {p.pay} · License {p.license || "—"} (renews in {p.licenseDays}d) · CE {p.ceHours}/{p.ceNeeded} · PIN {p.pin}</div>
@@ -2180,7 +2207,7 @@ function SettingsView({ state, dispatch }) {
             <button className="btn sm" disabled={inUse(p.id)} title={inUse(p.id) ? "Has appointments, notes, or invoices — reassign first" : "Remove provider"} style={{ color: "var(--rose)" }} onClick={() => setRemoveP(p)}><Trash2 size={13} /></button>
           </div>
         ))}
-        <div className="muted" style={{ fontSize: 12, padding: "10px 18px 14px" }}>Adding a provider updates the subscription automatically. Time-clock PINs are visible to owners only.</div>
+        <div className="muted" style={{ fontSize: 14, padding: "10px 18px 14px" }}>Adding a provider updates the subscription automatically. Time-clock PINs are visible to owners only.</div>
       </div>
 
       <div className="card pad" style={{ marginTop: 16 }}>
@@ -2195,7 +2222,7 @@ function SettingsView({ state, dispatch }) {
           [ShieldCheck, "Audit history preview (demo)"],
         ].map(([Ico, label], i) => (
           <div className="row" key={i} style={{ gap: 10, padding: "9px 0", borderBottom: i < 6 ? "1px dashed var(--border)" : "none" }}>
-            <Ico size={17} color="var(--pine)" /><span style={{ fontSize: 13.5 }}>{label}</span><Check size={15} color="var(--pine-soft)" style={{ marginLeft: "auto" }} />
+            <Ico size={17} color="var(--pine)" /><span style={{ fontSize: 15 }}>{label}</span><Check size={15} color="var(--pine-soft)" style={{ marginLeft: "auto" }} />
           </div>
         ))}
       </div>
@@ -2250,7 +2277,7 @@ function Charting({ state, dispatch, client, chartFocus, clearChartFocus }) {
           {state.clients.filter((cl) => !cl.archived).map((cl) => <option key={cl.id} value={cl.id}>{cl.name}</option>)}
         </select>
         <span className={`pill ${c.type === "patient" ? "c1099" : "w2"}`}>{c.type === "patient" ? "Patient · doctor-referred" : "Client · walk-in"}</span>
-        {c.referral && <span className="muted" style={{ fontSize: 12.5 }}>Referring: {c.referral}</span>}
+        {c.referral && <span className="muted" style={{ fontSize: 14 }}>Referring: {c.referral}</span>}
         <span className="pill" style={{ marginLeft: "auto" }}>{mine.length} finding{mine.length === 1 ? "" : "s"}</span>
       </div>
 
@@ -2267,7 +2294,7 @@ function Charting({ state, dispatch, client, chartFocus, clearChartFocus }) {
                 <div className="field" style={{ marginBottom: 8 }}><label>Type full name to e-sign</label><input className="inp" value={signName} onChange={(e) => setSignName(e.target.value)} placeholder={c.name} /></div>
                 <button className="btn pri sm" disabled={!signName.trim()} onClick={() => dispatch({ type: "SIGN_CONSENT", id: cid })}><PenLine size={13} /> Sign informed consent</button>
               </>}
-          <label className="row" style={{ gap: 8, marginTop: 12, fontSize: 13, cursor: "pointer" }}>
+          <label className="row" style={{ gap: 8, marginTop: 12, fontSize: 15, cursor: "pointer" }}>
             <input type="checkbox" checked={proposed} onChange={(e) => setProposed(e.target.checked)} />
             Client approved proposed action (diagrams / videos)
           </label>
@@ -2279,10 +2306,10 @@ function Charting({ state, dispatch, client, chartFocus, clearChartFocus }) {
             ? (reportSent
                 ? <div className="alert" style={{ padding: 0, border: "none" }}><div className="ico ok"><CheckCircle2 size={16} /></div><div><div className="tx">Report generated for {c.referral}</div><div className="sx">Findings, plan & progress compiled · downloaded and ready to send</div></div></div>
                 : <>
-                    <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Auto-compiles this month’s findings, treatment plan and progress into a referral report for {c.referral}.</div>
+                    <div className="muted" style={{ fontSize: 14, marginBottom: 10 }}>Auto-compiles this month’s findings, treatment plan and progress into a referral report for {c.referral}.</div>
                     <button className="btn pri sm" onClick={() => { const lines = [`Monthly progress report — ${c.name}`, `Referring physician: ${c.referral}`, `Prepared: ${todayISO}`, "", `Findings (${mine.length}):`, ...mine.map((f) => `- ${f.label} (${f.side}) · ${f.sev} · ${f.note}`), "", `Treatment plan: ${c.plan || "—"}`, "", "Prepared by Art of Palpation · AOP Office Solutions"]; downloadFile(`doctor-report-${c.name.replace(/\s+/g, "_")}-${todayISO}.txt`, lines.join("\n"), "text/plain"); setReportSent(true); }}><FileText size={13} /> Generate doctor report</button>
                   </>)
-            : <div className="muted" style={{ fontSize: 12.5 }}>Walk-in client — no referring physician, so no doctor report is required.</div>}
+            : <div className="muted" style={{ fontSize: 14 }}>Walk-in client — no referring physician, so no doctor report is required.</div>}
         </section>
       </div>
     </>
@@ -2306,15 +2333,15 @@ function DocViewer({ d, client }) {
   return (
     <div style={{ background: "#e9ece8", padding: 24, borderRadius: 10, minHeight: "60vh", display: "flex", justifyContent: "center", overflow: "auto" }}>
       <div style={{ background: "#fff", width: "100%", maxWidth: 640, minHeight: 720, boxShadow: "0 10px 30px rgba(0,0,0,.12)", padding: "48px 56px", fontFamily: "Georgia, 'Times New Roman', serif", color: "#222" }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#888", marginBottom: 18 }}>{d.kind}</div>
+        <div style={{ fontSize: 13, letterSpacing: 2, textTransform: "uppercase", color: "#888", marginBottom: 18 }}>{d.kind}</div>
         <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 6 }}>{d.name.replace(/\.\w+$/, "").replace(/[_-]+/g, " ")}</div>
-        <div style={{ fontSize: 13, color: "#666", marginBottom: 26 }}>{d.by ? `From ${d.by} · ` : ""}{d.date}</div>
-        <div style={{ fontSize: 14.5, lineHeight: 1.75 }}>
+        <div style={{ fontSize: 15, color: "#666", marginBottom: 26 }}>{d.by ? `From ${d.by} · ` : ""}{d.date}</div>
+        <div style={{ fontSize: 16, lineHeight: 1.75 }}>
           <p style={{ margin: "0 0 10px" }}><b>Client:</b> {client(d.clientId).name}</p>
           <p style={{ margin: "0 0 18px" }}>{blurb}</p>
           {[92, 100, 96, 88, 100, 74, 100, 60].map((w, i) => <div key={i} style={{ height: 10, width: `${w}%`, background: "#ececec", borderRadius: 3, marginBottom: 9 }} />)}
         </div>
-        <div style={{ marginTop: 40, fontSize: 11, color: "#999" }}>Stored as Tier {d.tier} · {d.url ? "Original file attached" : "No file attached — showing the vault record. Use Re-upload to attach the original."}</div>
+        <div style={{ marginTop: 40, fontSize: 13, color: "#999" }}>Stored as Tier {d.tier} · {d.url ? "Original file attached" : "No file attached — showing the vault record. Use Re-upload to attach the original."}</div>
       </div>
     </div>
   );
@@ -2370,7 +2397,7 @@ function Documents({ state, dispatch, client, go, setSelClient }) {
       <>
         <div className="row" style={{ gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
           <button className="btn ghost sm" onClick={() => setSelDoc(null)}><ArrowLeft size={14} /> Documents</button>
-          <div style={{ fontWeight: 700, fontSize: 15, display: "inline-flex", alignItems: "center", gap: 7 }}><FileText size={16} color="var(--muted-2)" />{doc.name}</div>
+          <div style={{ fontWeight: 700, fontSize: 17, display: "inline-flex", alignItems: "center", gap: 7 }}><FileText size={16} color="var(--muted-2)" />{doc.name}</div>
           {tierPill(doc)}<span className="pill">{doc.kind}</span>
           <div className="row" style={{ gap: 8, marginLeft: "auto" }}>
             <button className="btn" onClick={() => download(doc)}><Download size={14} /> Download</button>
@@ -2408,7 +2435,7 @@ function Documents({ state, dispatch, client, go, setSelClient }) {
         </select>
         <select className="sel" style={{ maxWidth: 180 }} value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k}>{k}</option>)}</select>
         <button className="btn pri" onClick={() => upRef.current && upRef.current.click()}><Upload size={15} /> Upload document</button>
-        <span className="muted" style={{ fontSize: 12 }}>Tagged with the selected client and type</span>
+        <span className="muted" style={{ fontSize: 14 }}>Tagged with the selected client and type</span>
       </div>
       <div className="card">
         <div className="sec-h"><h3>Document vault</h3><span className="tiny">{list.length} files</span></div>
@@ -2461,8 +2488,8 @@ function Academy({ state, dispatch, prov }) {
           return (
             <div key={p.id} className="card pad">
               <div className="row" style={{ gap: 8, marginBottom: 8 }}>
-                <div className="avatar" style={{ background: p.color, width: 30, height: 30, fontSize: 11 }}>{initials(p.name)}</div>
-                <div><div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div><div className="muted" style={{ fontSize: 11.5 }}>{p.ceHours} / {p.ceNeeded} CE hrs</div></div>
+                <div className="avatar" style={{ background: p.color, width: 30, height: 30, fontSize: 13 }}>{initials(p.name)}</div>
+                <div><div style={{ fontWeight: 600, fontSize: 15 }}>{p.name}</div><div className="muted" style={{ fontSize: 13 }}>{p.ceHours} / {p.ceNeeded} CE hrs</div></div>
               </div>
               <div style={{ height: 8, background: "var(--sage)", borderRadius: 20, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${Math.min(100, pct)}%`, background: pct >= 100 ? "var(--pine-soft)" : "var(--gold)" }} />
@@ -2844,7 +2871,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
       <>
         <div className="row" style={{ gap: 10, marginBottom: 16, alignItems: "center" }}>
           <button className="btn ghost sm" onClick={() => { setMode("list"); setDraft(null); }}><ArrowLeft size={14} /> Cancel</button>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{isNew ? "New flow" : "Edit flow"}</div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>{isNew ? "New flow" : "Edit flow"}</div>
           <button className="btn pri sm" style={{ marginLeft: "auto" }} onClick={saveDraft}><Check size={14} /> Save flow</button>
         </div>
 
@@ -2939,7 +2966,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
       <>
         <div className="row" style={{ gap: 10, marginBottom: 16, alignItems: "center" }}>
           <button className="btn ghost sm" onClick={() => setMode("list")}><ArrowLeft size={14} /> All flows</button>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{flow.name}</div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>{flow.name}</div>
           <span className="pill" style={{ marginLeft: 6 }}>{flow.cat}</span>
           <button className="btn ghost sm" style={{ marginLeft: "auto" }} onClick={() => startEdit(flow)}><Pencil size={13} /> Edit</button>
           <span className="pill">Step {trail.length}</span>
@@ -2954,7 +2981,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
               {node.kind === "decision" ? "Decision" : node.kind === "end" ? (node.tone === "bad" ? "Ended" : "Done") : node.kind === "start" ? "Start" : "Step"}
             </span>
             <div className="serif" style={{ fontSize: node.kind === "end" ? 22 : 20, fontWeight: 600, margin: "12px 0 6px" }}>{node.title}</div>
-            {node.desc && <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>{node.desc}</div>}
+            {node.desc && <div className="muted" style={{ fontSize: 15, marginBottom: 14 }}>{node.desc}</div>}
             <div style={{ borderTop: "1px solid var(--border)", marginTop: 18, paddingTop: 16 }}>
               <div className="tiny" style={{ marginBottom: 10 }}>Step guidance</div>
               {[
@@ -2964,8 +2991,8 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                 ["What success looks like", guidance.success],
               ].map(([label, text]) => (
                 <div key={label} style={{ marginBottom: 11 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{label}</div>
-                  <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>{text}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3 }}>{label}</div>
+                  <div className="muted" style={{ fontSize: 14, lineHeight: 1.55 }}>{text}</div>
                 </div>
               ))}
             </div>
@@ -2988,13 +3015,13 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                   ? <div className="row" style={{ gap: 8 }}><span className="pill done"><Check size={12} /> Step complete</span><button className="btn ghost sm" onClick={restart}>Run again</button></div>
                   : validNext
                     ? <button className="btn pri" onClick={() => go(node.next)}>Complete step &amp; continue <ChevronRight size={15} /></button>
-                    : <><div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>No next step is configured. Complete this final step when its work is done.</div><button className="btn pri" onClick={() => setFlowComplete(true)}>Complete step <Check size={15} /></button></>}
+                    : <><div className="muted" style={{ fontSize: 15, marginBottom: 12 }}>No next step is configured. Complete this final step when its work is done.</div><button className="btn pri" onClick={() => setFlowComplete(true)}>Complete step <Check size={15} /></button></>}
               </div>
             )}
             <div className="field" style={{ marginTop: 12 }}>
               <label>Step note · session only</label>
               <textarea className="ta" rows={3} value={flowNotes[stepNoteKey] || ""} onChange={(e) => setFlowNotes((current) => ({ ...current, [stepNoteKey]: e.target.value }))} placeholder="Personal scratch note for this walkthrough…" />
-              <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>Kept in this browser session across navigation and restart. Do not enter real patient or clinical details.</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Kept in this browser session across navigation and restart. Do not enter real patient or clinical details.</div>
             </div>
             <div style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 12 }}>
               <div className="tiny" style={{ marginBottom: 8 }}>Help with this step</div>
@@ -3002,7 +3029,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                 <button className="btn ghost sm" disabled={!onReportFlowStep} onClick={() => reportStep("issue")}><AlertTriangle size={13} /> Report an issue</button>
                 <button className="btn ghost sm" disabled={!onReportFlowStep} onClick={() => reportStep("feedback")}><MessageSquare size={13} /> Give feedback</button>
               </div>
-              {!onReportFlowStep && <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>Feedback is not connected in this workspace.</div>}
+              {!onReportFlowStep && <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>Feedback is not connected in this workspace.</div>}
             </div>
           </section>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -3013,7 +3040,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                 return (
                   <div key={i} className="row" style={{ gap: 10, alignItems: "flex-start", paddingBottom: 10 }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: last ? "var(--pine)" : "var(--pine-soft)", marginTop: 4, flex: "0 0 auto" }} />
-                    <div><div style={{ fontSize: 13, fontWeight: last ? 700 : 600, color: last ? "var(--ink)" : "var(--muted)" }}>{n ? n.title : step.id}</div>{step.via && <div style={{ fontSize: 11.5, color: "#9a6a16" }}>&rsaquo; {step.via}</div>}</div>
+                    <div><div style={{ fontSize: 15, fontWeight: last ? 700 : 600, color: last ? "var(--ink)" : "var(--muted)" }}>{n ? n.title : step.id}</div>{step.via && <div style={{ fontSize: 13, color: "#9a6a16" }}>&rsaquo; {step.via}</div>}</div>
                   </div>
                 );
               })}
@@ -3026,8 +3053,8 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                   <div key={id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "5px 0", opacity: done || isCur ? 1 : 0.5 }}>
                     <div style={{ width: 9, height: 9, borderRadius: "50%", marginTop: 5, flex: "0 0 auto", background: isCur ? "var(--gold)" : done ? kindDot(n.kind) : "var(--border)", boxShadow: isCur ? "0 0 0 4px rgba(184,138,50,.22)" : "none" }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: isCur ? 700 : 500, color: "var(--ink)" }}>{n.title}{n.kind === "decision" && <span style={{ color: "var(--muted)", fontWeight: 500 }}> · decision</span>}</div>
-                      {n.opts && n.opts.map(([label], k) => (<div key={k} style={{ fontSize: 11, color: "var(--muted)" }}>&rsaquo; {label}</div>))}
+                      <div style={{ fontSize: 14, fontWeight: isCur ? 700 : 500, color: "var(--ink)" }}>{n.title}{n.kind === "decision" && <span style={{ color: "var(--muted)", fontWeight: 500 }}> · decision</span>}</div>
+                      {n.opts && n.opts.map(([label], k) => (<div key={k} style={{ fontSize: 13, color: "var(--muted)" }}>&rsaquo; {label}</div>))}
                     </div>
                   </div>
                 );
@@ -3044,7 +3071,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
   return (
     <>
       <div className="row" style={{ marginBottom: 16, alignItems: "center" }}>
-        <div className="muted" style={{ fontSize: 13.5, maxWidth: 620 }}>Guided walkthroughs of every route on the map. Run one to step through its decisions, or build and edit your own.</div>
+        <div className="muted" style={{ fontSize: 15, maxWidth: 620 }}>Guided walkthroughs of every route on the map. Run one to step through its decisions, or build and edit your own.</div>
         <button className="btn pri" style={{ marginLeft: "auto" }} onClick={startNew}><Plus size={15} /> New flow</button>
       </div>
       {cats.map((cat) => {
@@ -3062,9 +3089,9 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
                     <div onClick={() => begin(f)} style={{ cursor: "pointer", flex: 1 }}>
                       <div className="row" style={{ gap: 10, marginBottom: 8 }}>
                         <div className="avatar" style={{ background: "var(--pine)", width: 30, height: 30 }}><Workflow size={15} color="#fff" /></div>
-                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>{f.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{f.name}</div>
                       </div>
-                      <div className="muted" style={{ fontSize: 12, marginBottom: 12, minHeight: 46 }}>{f.desc}</div>
+                      <div className="muted" style={{ fontSize: 14, marginBottom: 12, minHeight: 46 }}>{f.desc}</div>
                       <div className="row" style={{ gap: 6 }}><span className="pill">{steps} steps</span><span className="pill">{dec} decisions</span></div>
                     </div>
                     <div className="row" style={{ gap: 6, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
@@ -3080,7 +3107,7 @@ function Flows({ flows, setFlows, flowNotes, setFlowNotes, onReportFlowStep }) {
           </div>
         );
       })}
-      {flows.length === 0 && <div className="muted" style={{ fontSize: 14 }}>No flows yet. Create one with “New flow”.</div>}
+      {flows.length === 0 && <div className="muted" style={{ fontSize: 16 }}>No flows yet. Create one with “New flow”.</div>}
       {confirmFlow && <ConfirmModal danger title={`Delete flow “${confirmFlow.name}”?`} confirm="Delete flow" onClose={() => setConfirmFlow(null)} body={<>All {Object.keys(confirmFlow.nodes).length} steps in this flow will be removed. This can’t be undone.</>} onConfirm={() => { removeFlow(confirmFlow.id); setConfirmFlow(null); }} />}
     </>
   );
@@ -3104,7 +3131,7 @@ function CalendarSync({ state, prov, client, cal, setCal }) {
   return (
     <>
       <div className="row" style={{ marginBottom: 16, alignItems: "center" }}>
-        <div className="muted" style={{ fontSize: 13.5, maxWidth: 620 }}>Keep the schedule in sync with the calendars your team already lives in. Connect an account for continuous two-way sync, or export an .ics that imports anywhere.</div>
+        <div className="muted" style={{ fontSize: 15, maxWidth: 620 }}>Keep the schedule in sync with the calendars your team already lives in. Connect an account for continuous two-way sync, or export an .ics that imports anywhere.</div>
         <span className="pill" style={{ marginLeft: "auto" }}>{connectedCount} connected</span>
       </div>
 
@@ -3126,16 +3153,16 @@ function CalendarSync({ state, prov, client, cal, setCal }) {
             <div className="card pad" key={pv.id} style={{ display: "flex", flexDirection: "column" }}>
               <div className="row" style={{ gap: 10, marginBottom: 10 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 11, background: pv.color, display: "flex", alignItems: "center", justifyContent: "center" }}><CalendarDays size={19} color="#fff" /></div>
-                <div><div style={{ fontWeight: 700, fontSize: 13.5 }}>{pv.name}</div><div className="muted" style={{ fontSize: 11.5 }}>{cs.connected ? cs.account : "Not connected"}</div></div>
+                <div><div style={{ fontWeight: 700, fontSize: 15 }}>{pv.name}</div><div className="muted" style={{ fontSize: 13 }}>{cs.connected ? cs.account : "Not connected"}</div></div>
               </div>
               {cs.connected ? (
                 <>
                   <div className="field" style={{ marginBottom: 8 }}><label>Calendar</label>
                     <select className="sel" value={cs.calendar} onChange={(e) => upd(pv.id, { calendar: e.target.value })}>{pv.cals.map((k) => <option key={k}>{k}</option>)}</select></div>
-                  <label className="row" style={{ gap: 8, fontSize: 12.5, cursor: "pointer", marginBottom: 8 }}>
+                  <label className="row" style={{ gap: 8, fontSize: 14, cursor: "pointer", marginBottom: 8 }}>
                     <input type="checkbox" checked={!!cs.twoWay} onChange={(e) => upd(pv.id, { twoWay: e.target.checked })} /> Two-way sync
                   </label>
-                  <div className="muted" style={{ fontSize: 11.5, marginBottom: 10 }}>Last synced {cs.last}</div>
+                  <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>Last synced {cs.last}</div>
                   <div className="row" style={{ gap: 6, marginTop: "auto" }}>
                     <button className="btn sm" onClick={() => upd(pv.id, { last: "Just now · " + now() })}><RefreshCw size={13} /> Sync now</button>
                     <button className="btn ghost sm" style={{ marginLeft: "auto", color: "var(--rose)" }} onClick={() => disconnect(pv.id)}>Disconnect</button>
@@ -3143,7 +3170,7 @@ function CalendarSync({ state, prov, client, cal, setCal }) {
                 </>
               ) : (
                 <>
-                  <div className="muted" style={{ fontSize: 12, marginBottom: 12, minHeight: 34 }}>Connect to push appointments and pull availability automatically.</div>
+                  <div className="muted" style={{ fontSize: 14, marginBottom: 12, minHeight: 34 }}>Connect to push appointments and pull availability automatically.</div>
                   <button className="btn pri sm" style={{ marginTop: "auto" }} onClick={() => connect(pv)}><Link2 size={13} /> Connect</button>
                 </>
               )}
@@ -3155,14 +3182,14 @@ function CalendarSync({ state, prov, client, cal, setCal }) {
       <div className="two">
         <section className="card pad">
           <div className="tiny" style={{ marginBottom: 8 }}>Export</div>
-          <div className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>Download an iCalendar file of the current schedule and import it into any Google, Outlook, or Apple calendar.</div>
+          <div className="muted" style={{ fontSize: 14, marginBottom: 12 }}>Download an iCalendar file of the current schedule and import it into any Google, Outlook, or Apple calendar.</div>
           <button className="btn pri" onClick={() => downloadFile("aop-schedule.ics", buildICS(state.appts, { detail: cal.detail, prov, client, dateISO: todayISO }), "text/calendar")}><CalendarCheck size={15} /> Download .ics ({state.appts.length} events)</button>
         </section>
         <section className="card pad">
           <div className="tiny" style={{ marginBottom: 8 }}>Subscribe feed</div>
-          <div className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>A live subscription URL keeps calendars updated without re-importing. Available once the hosted backend is connected.</div>
+          <div className="muted" style={{ fontSize: 14, marginBottom: 12 }}>A live subscription URL keeps calendars updated without re-importing. Available once the hosted backend is connected.</div>
           <div className="row" style={{ gap: 8 }}>
-            <input className="inp" readOnly value={feed} style={{ flex: 1, fontSize: 12.5 }} onFocus={(e) => e.target.select()} />
+            <input className="inp" readOnly value={feed} style={{ flex: 1, fontSize: 14 }} onFocus={(e) => e.target.select()} />
             <button className="btn sm" disabled>Not connected</button>
           </div>
         </section>

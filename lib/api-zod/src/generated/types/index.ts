@@ -12,6 +12,7 @@ export * from './betaAccessRequestSubmission';
 export * from './betaAdminGetUsageDays';
 export * from './betaAdminGetUsageParams';
 export * from './betaArea';
+export * from './betaDataMode';
 export * from './betaError';
 export * from './betaEvent';
 export * from './betaEventSubmission';

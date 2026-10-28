@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BetaDataMode } from './betaDataMode';
 import type { BetaPlatform } from './betaPlatform';
 import type { BetaSessionEndReason } from './betaSessionEndReason';
 import type { BetaSessionFeedback } from './betaSessionFeedback';
@@ -12,6 +13,8 @@ import type { BetaSessionFeedback } from './betaSessionFeedback';
 export interface BetaSession {
   id: string;
   platform: BetaPlatform;
+  mode: BetaDataMode;
+  walkthrough: boolean;
   startedAt: Date;
   /** @nullable */
   endedAt: Date | null;

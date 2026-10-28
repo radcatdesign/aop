@@ -154,12 +154,17 @@ export const BetaListMyFeedbackResponse = zod.array(BetaListMyFeedbackResponseIt
  * @summary Start a sample workspace session
  */
 export const BetaStartSessionBody = zod.object({
-  "platform": zod.enum(['web', 'mobile'])
+  "platform": zod.enum(['web', 'mobile']),
+  "mode": zod.enum(['demo', 'fresh']).describe('demo = sample practice with invented records; fresh = empty practice for the tester\'s own made-up entries'),
+  "walkthrough": zod.boolean().optional(),
+  "acknowledgedDummyData": zod.literal(true).describe('The tester ticked that everything is dummy content, deleted when the session ends and never saved.')
 })
 
 export const BetaStartSessionResponse = zod.object({
   "id": zod.string(),
   "platform": zod.enum(['web', 'mobile']),
+  "mode": zod.enum(['demo', 'fresh']).describe('demo = sample practice with invented records; fresh = empty practice for the tester\'s own made-up entries'),
+  "walkthrough": zod.boolean(),
   "startedAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullable(),
   "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
@@ -185,6 +190,8 @@ export const BetaStartSessionResponse = zod.object({
 export const BetaListMySessionsResponseItem = zod.object({
   "id": zod.string(),
   "platform": zod.enum(['web', 'mobile']),
+  "mode": zod.enum(['demo', 'fresh']).describe('demo = sample practice with invented records; fresh = empty practice for the tester\'s own made-up entries'),
+  "walkthrough": zod.boolean(),
   "startedAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullable(),
   "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
@@ -220,6 +227,8 @@ export const BetaEndSessionBody = zod.object({
 export const BetaEndSessionResponse = zod.object({
   "id": zod.string(),
   "platform": zod.enum(['web', 'mobile']),
+  "mode": zod.enum(['demo', 'fresh']).describe('demo = sample practice with invented records; fresh = empty practice for the tester\'s own made-up entries'),
+  "walkthrough": zod.boolean(),
   "startedAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullable(),
   "endReason": zod.union([zod.enum(['ended', 'timeout', 'left']).describe('ended = tester clicked End session; timeout = idle or 30-minute limit; left = tab closed or navigated away'),zod.null()]),
@@ -244,7 +253,7 @@ export const BetaEndSessionResponse = zod.object({
  * @summary Record an approved user's beta event
  */
 export const BetaRecordEventBody = zod.object({
-  "event": zod.enum(['session_start', 'screen_view', 'assessment_saved', 'checkout_demo']),
+  "event": zod.enum(['session_start', 'screen_view', 'assessment_saved', 'checkout_demo', 'tour_skipped', 'tour_chose_demo', 'tour_chose_fresh']),
   "platform": zod.enum(['web', 'mobile']),
   "screen": zod.enum(['overview', 'schedule', 'clients', 'notes', 'billing', 'settings', 'other'])
 })
@@ -455,7 +464,7 @@ export const BetaAdminGetUsageResponse = zod.object({
   "events": zod.number().int().min(betaAdminGetUsageResponseDailyItemEventsMin)
 })),
   "features": zod.array(zod.object({
-  "event": zod.enum(['session_start', 'screen_view', 'assessment_saved', 'checkout_demo']),
+  "event": zod.enum(['session_start', 'screen_view', 'assessment_saved', 'checkout_demo', 'tour_skipped', 'tour_chose_demo', 'tour_chose_fresh']),
   "count": zod.number().int().min(betaAdminGetUsageResponseFeaturesItemCountMin)
 })),
   "platforms": zod.array(zod.object({

@@ -173,6 +173,17 @@ export const BetaSessionEndReason = {
   left: 'left',
 } as const;
 
+/**
+ * demo = sample practice with invented records; fresh = empty practice for the tester's own made-up entries
+ */
+export type BetaDataMode = typeof BetaDataMode[keyof typeof BetaDataMode];
+
+
+export const BetaDataMode = {
+  demo: 'demo',
+  fresh: 'fresh',
+} as const;
+
 export type BetaPlatform = typeof BetaPlatform[keyof typeof BetaPlatform];
 
 
@@ -183,6 +194,10 @@ export const BetaPlatform = {
 
 export interface BetaSessionStart {
   platform: BetaPlatform;
+  mode: BetaDataMode;
+  walkthrough?: boolean;
+  /** The tester ticked that everything is dummy content, deleted when the session ends and never saved. */
+  acknowledgedDummyData: true;
 }
 
 export interface BetaSessionEnd {
@@ -229,6 +244,8 @@ export interface BetaSessionFeedback {
 export interface BetaSession {
   id: string;
   platform: BetaPlatform;
+  mode: BetaDataMode;
+  walkthrough: boolean;
   startedAt: string;
   /** @nullable */
   endedAt: string | null;
@@ -306,6 +323,9 @@ export const BetaEvent = {
   screen_view: 'screen_view',
   assessment_saved: 'assessment_saved',
   checkout_demo: 'checkout_demo',
+  tour_skipped: 'tour_skipped',
+  tour_chose_demo: 'tour_chose_demo',
+  tour_chose_fresh: 'tour_chose_fresh',
 } as const;
 
 export interface BetaEventSubmission {

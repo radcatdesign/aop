@@ -31,6 +31,8 @@ export const betaSessions = pgTable("beta_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => betaUsers.id),
   platform: text("platform").$type<"web" | "mobile">().notNull(),
+  mode: text("mode").$type<"demo" | "fresh">().notNull().default("demo"),
+  walkthrough: boolean("walkthrough").notNull().default(false),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   endReason: text("end_reason").$type<"ended" | "timeout" | "left">(),
@@ -58,7 +60,7 @@ export const betaFeedback = pgTable("beta_feedback", {
 export const betaEvents = pgTable("beta_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => betaUsers.id),
-  event: text("event").$type<"session_start" | "screen_view" | "assessment_saved" | "checkout_demo">().notNull(),
+  event: text("event").$type<"session_start" | "screen_view" | "assessment_saved" | "checkout_demo" | "tour_skipped" | "tour_chose_demo" | "tour_chose_fresh">().notNull(),
   platform: text("platform").$type<"web" | "mobile">().notNull(),
   screen: text("screen").$type<"overview" | "schedule" | "clients" | "notes" | "billing" | "settings" | "other">().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

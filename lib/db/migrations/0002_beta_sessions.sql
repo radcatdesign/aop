@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS "beta_sessions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"platform" text NOT NULL,
+	"mode" text DEFAULT 'demo' NOT NULL,
+	"walkthrough" boolean DEFAULT false NOT NULL,
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ended_at" timestamp with time zone,
 	"end_reason" text

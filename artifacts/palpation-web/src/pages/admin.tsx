@@ -110,8 +110,8 @@ function RequestsTab() {
           {rows.map((r) => (
             <li key={r.id} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center" data-testid={`row-request-${r.id}`}>
               <button type="button" onClick={() => setOpen(r)} className="min-w-0 flex-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`button-open-request-${r.id}`}>
-                <span className="flex items-center gap-2"><span className="truncate text-[13.5px] font-semibold">{r.name}</span><StatusPill value={r.status} /></span>
-                <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{r.email} · {r.practice} · {r.role} · {formatDate(r.createdAt)}</span>
+                <span className="flex items-center gap-2"><span className="truncate text-body font-semibold">{r.name}</span><StatusPill value={r.status} /></span>
+                <span className="mt-0.5 block truncate text-sm text-muted-foreground">{r.email} · {r.practice} · {r.role} · {formatDate(r.createdAt)}</span>
               </button>
               <RequestActions r={r} act={act} busy={update.isPending} />
             </li>
@@ -123,14 +123,14 @@ function RequestsTab() {
           {open && (
             <>
               <SheetHeader><SheetTitle>{open.name}</SheetTitle><SheetDescription>{open.email}</SheetDescription></SheetHeader>
-              <dl className="mt-6 space-y-4 text-[13px]">
+              <dl className="mt-6 space-y-4 text-body">
                 {[["Practice", open.practice], ["License", open.licenseNumber || "Not provided"], ["Role", open.role], ["Requested", formatDate(open.createdAt)], ["Reviewed", formatDate(open.reviewedAt)]].map(([k, v]) => (
-                  <div key={k}><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
+                  <div key={k}><dt className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
                 ))}
-                <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reason</dt><dd className="mt-1 whitespace-pre-wrap leading-relaxed">{open.reason}</dd></div>
-                <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</dt><dd className="mt-1"><StatusPill value={open.status} /></dd></div>
+                <div><dt className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">Reason</dt><dd className="mt-1 whitespace-pre-wrap leading-relaxed">{open.reason}</dd></div>
+                <div><dt className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">Status</dt><dd className="mt-1"><StatusPill value={open.status} /></dd></div>
               </dl>
-              <p className="mt-6 rounded-md bg-secondary p-3 text-[12.5px] leading-relaxed text-secondary-foreground">Approval does not send an email. Share the sign-up link yourself; they must sign up and verify <span className="font-semibold">{open.email}</span> exactly.</p>
+              <p className="mt-6 rounded-md bg-secondary p-3 text-sm leading-relaxed text-secondary-foreground">Approval does not send an email. Share the sign-up link yourself; they must sign up and verify <span className="font-semibold">{open.email}</span> exactly.</p>
               <div className="mt-5 flex flex-wrap gap-2"><RequestActions r={open} act={act} busy={update.isPending} /></div>
             </>
           )}
@@ -180,8 +180,8 @@ function UsersTab({ selfId }: { selfId: string }) {
         <EmptyState icon={<Users className="h-5 w-5" />} title="No users match">Users appear after they sign up with an email that has a request.</EmptyState>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-[13px]">
-            <thead><tr className="border-b border-border bg-muted/40 text-left text-[11px] text-muted-foreground">
+          <table className="w-full min-w-[720px] text-body">
+            <thead><tr className="border-b border-border bg-muted/40 text-left text-caption text-muted-foreground">
               <th className="px-4 py-2.5 font-medium">User</th><th className="px-4 py-2.5 font-medium">Status</th><th className="px-4 py-2.5 font-medium">Role</th><th className="px-4 py-2.5 font-medium">Last seen</th><th className="px-4 py-2.5 font-medium"><span className="sr-only">Actions</span></th>
             </tr></thead>
             <tbody className="divide-y divide-border">
@@ -189,8 +189,8 @@ function UsersTab({ selfId }: { selfId: string }) {
                 const self = u.id === selfId;
                 return (
                   <tr key={u.id} data-testid={`row-user-${u.id}`}>
-                    <td className="px-4 py-3"><div className="font-semibold">{u.name}{self && <span className="ml-2 text-[11px] font-normal text-muted-foreground">(you)</span>}</div><div className="text-[12px] text-muted-foreground">{u.email}</div></td>
-                    <td className="px-4 py-3"><div className="flex items-center gap-2"><StatusPill value={u.status} />{u.status === "approved" && !u.acknowledged && <span className="text-[11px] text-muted-foreground">not acknowledged</span>}</div></td>
+                    <td className="px-4 py-3"><div className="font-semibold">{u.name}{self && <span className="ml-2 text-caption font-normal text-muted-foreground">(you)</span>}</div><div className="text-sm text-muted-foreground">{u.email}</div></td>
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><StatusPill value={u.status} />{u.status === "approved" && !u.acknowledged && <span className="text-caption text-muted-foreground">not acknowledged</span>}</div></td>
                     <td className="px-4 py-3">
                       <Select value={u.role} disabled={self || update.isPending} onValueChange={(v) => update.mutate({ id: u.id, data: { role: v as BetaUser["role"] } })}>
                         <SelectTrigger className="h-8 w-[110px]" aria-label={`Role for ${u.name}`} data-testid={`select-role-${u.id}`}><SelectValue /></SelectTrigger>
@@ -203,7 +203,7 @@ function UsersTab({ selfId }: { selfId: string }) {
                         <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => update.mutate({ id: u.id, data: { status: "approved" } })} data-testid={`button-reactivate-${u.id}`}>Reactivate</Button>
                       ) : u.status === "approved" ? (
                         <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={self || update.isPending} onClick={() => setConfirm(u)} data-testid={`button-suspend-${u.id}`}>Suspend</Button>
-                      ) : <span className="text-[12px] text-muted-foreground">Review request</span>}
+                      ) : <span className="text-sm text-muted-foreground">Review request</span>}
                     </td>
                   </tr>
                 );
@@ -251,11 +251,11 @@ function FeedbackTab() {
           {rows.map((f) => (
             <li key={f.id}>
               <button type="button" onClick={() => setOpenId(f.id)} className="w-full px-4 py-3.5 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" data-testid={`row-feedback-${f.id}`}>
-                <span className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+                <span className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
                   <span className="font-semibold uppercase tracking-wider">{f.category}</span><span>·</span><span>{f.userName}</span><span>·</span><span>{areaLabel(f.area) ?? f.screen}{f.areaDetail ? ` · ${f.areaDetail}` : ""} / {f.platform}</span>{f.rating && <><span>·</span><span>{f.rating}/5</span></>}<span>·</span><span>{formatDate(f.createdAt)}</span>
                   <span className="ml-auto"><StatusPill value={f.status} /></span>
                 </span>
-                <span className="mt-1 line-clamp-2 block text-[13px] text-foreground">{f.message}</span>
+                <span className="mt-1 line-clamp-2 block text-body text-foreground">{f.message}</span>
               </button>
             </li>
           ))}
@@ -283,23 +283,23 @@ function FeedbackDetail({ f }: { f: BetaFeedback }) {
   return (
     <>
       <SheetHeader><SheetTitle className="capitalize">{f.category} from {f.userName}</SheetTitle><SheetDescription>{f.userEmail} · {f.platform} · {formatDate(f.createdAt)}{f.rating ? ` · ${f.rating}/5` : ""}</SheetDescription></SheetHeader>
-      <dl className="mt-6 grid grid-cols-3 gap-3 text-[12.5px]">
+      <dl className="mt-6 grid grid-cols-3 gap-3 text-sm">
         {[["Area", areaLabel(f.area) ?? f.screen], ["Sent from", areaLabel(f.page) ?? "—"], ["Session", f.sessionId ? "During a session" : "Outside a session"]].map(([k, v]) => (
-          <div key={k}><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
+          <div key={k}><dt className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
         ))}
-        {f.areaDetail && <div className="col-span-3"><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Specific spot</dt><dd className="mt-0.5">{f.areaDetail}</dd></div>}
+        {f.areaDetail && <div className="col-span-3"><dt className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">Specific spot</dt><dd className="mt-0.5">{f.areaDetail}</dd></div>}
       </dl>
-      <p className="mt-4 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-[13.5px] leading-relaxed">{f.message}</p>
+      <p className="mt-4 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-body leading-relaxed">{f.message}</p>
       <div className="mt-6 space-y-4">
         <div>
-          <label className="text-[12px] font-medium text-muted-foreground" htmlFor="fb-status">Status</label>
+          <label className="text-sm font-medium text-muted-foreground" htmlFor="fb-status">Status</label>
           <Select value={status} onValueChange={(v) => setStatus(v as BetaFeedbackStatus)}>
             <SelectTrigger id="fb-status" className="mt-1.5" data-testid="select-feedback-detail-status"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="new">new</SelectItem><SelectItem value="in_review">in review</SelectItem><SelectItem value="resolved">resolved</SelectItem></SelectContent>
           </Select>
         </div>
         <div>
-          <label className="text-[12px] font-medium text-muted-foreground" htmlFor="fb-note">Admin note <span className="font-normal">(private, admins only)</span></label>
+          <label className="text-sm font-medium text-muted-foreground" htmlFor="fb-note">Admin note <span className="font-normal">(private, admins only)</span></label>
           <Textarea id="fb-note" rows={4} maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} className="mt-1.5" data-testid="input-admin-note" />
         </div>
         <Button disabled={!dirty || update.isPending} onClick={() => update.mutate({ id: f.id, data: { status, adminNote: note } })} data-testid="button-save-feedback">{update.isPending ? "Saving..." : "Save changes"}</Button>
@@ -321,10 +321,10 @@ function UsageTab() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <p className="text-[12.5px] text-muted-foreground">Counts come directly from recorded beta events.</p>
+        <p className="text-sm text-muted-foreground">Counts come directly from recorded beta events.</p>
         <div className="inline-flex rounded-lg border border-border bg-card p-0.5" role="radiogroup" aria-label="Time range">
           {([7, 30, 90] as const).map((d) => (
-            <button key={d} type="button" role="radio" aria-checked={days === d} onClick={() => setDays(d)} className={`rounded-md px-3 py-1.5 text-[12px] font-medium ${days === d ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`} data-testid={`button-days-${d}`}>{d}d</button>
+            <button key={d} type="button" role="radio" aria-checked={days === d} onClick={() => setDays(d)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${days === d ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`} data-testid={`button-days-${d}`}>{d}d</button>
           ))}
         </div>
       </div>
@@ -333,13 +333,13 @@ function UsageTab() {
           <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-3 lg:grid-cols-6">
             {([["Requests", u.totals.requests], ["Pending", u.totals.pendingRequests], ["Approved users", u.totals.approvedUsers], ["Active users", u.totals.activeUsers], ["Sessions", u.totals.sessions], ["Feedback", u.totals.feedback]] as const).map(([k, v]) => (
               <div key={k} className="border-b border-r border-border p-4">
-                <div className="text-[11.5px] text-muted-foreground">{k}</div>
+                <div className="text-caption text-muted-foreground">{k}</div>
                 <div className="mt-1 text-[26px] font-medium tabular-nums tracking-tight" data-testid={`text-total-${k.toLowerCase().replace(" ", "-")}`}>{v.toLocaleString()}</div>
               </div>
             ))}
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="text-[13.5px] font-semibold">Daily activity</h3>
+            <h3 className="text-body font-semibold">Daily activity</h3>
             {u.daily.length === 0 ? <EmptyState icon={<Activity className="h-5 w-5" />} title="No activity in this range" /> : (
               <div className="mt-4 h-60">
                 <ResponsiveContainer width="100%" height="100%">
@@ -357,19 +357,19 @@ function UsageTab() {
           </div>
           <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
             <div className="rounded-xl border border-border bg-card p-5">
-              <h3 className="text-[13.5px] font-semibold">Features</h3>
-              {u.features.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">No feature events yet.</p> : (
+              <h3 className="text-body font-semibold">Features</h3>
+              {u.features.length === 0 ? <p className="mt-3 text-body text-muted-foreground">No feature events yet.</p> : (
                 <ul className="mt-4 space-y-3">{u.features.map((f) => (
-                  <li key={f.event}><div className="flex justify-between text-[12.5px]"><span>{FEATURE_LABEL[f.event] ?? f.event}</span><span className="tabular-nums text-muted-foreground">{f.count.toLocaleString()}</span></div>
+                  <li key={f.event}><div className="flex justify-between text-sm"><span>{FEATURE_LABEL[f.event] ?? f.event}</span><span className="tabular-nums text-muted-foreground">{f.count.toLocaleString()}</span></div>
                     <div className="mt-1 h-1.5 overflow-hidden rounded bg-muted"><div className="h-full rounded bg-primary/70" style={{ width: `${(f.count / maxFeature) * 100}%` }} /></div></li>
                 ))}</ul>
               )}
             </div>
             <div className="rounded-xl border border-border bg-card p-5">
-              <h3 className="text-[13.5px] font-semibold">Platforms</h3>
-              {u.platforms.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">No platform data yet.</p> : (
+              <h3 className="text-body font-semibold">Platforms</h3>
+              {u.platforms.length === 0 ? <p className="mt-3 text-body text-muted-foreground">No platform data yet.</p> : (
                 <ul className="mt-4 space-y-3">{u.platforms.map((p) => (
-                  <li key={p.platform} className="flex items-center justify-between text-[13px]"><span className="capitalize">{p.platform}</span><span className="tabular-nums text-muted-foreground">{p.count.toLocaleString()} · {((p.count / totalPlatform) * 100).toFixed(1)}%</span></li>
+                  <li key={p.platform} className="flex items-center justify-between text-body"><span className="capitalize">{p.platform}</span><span className="tabular-nums text-muted-foreground">{p.count.toLocaleString()} · {((p.count / totalPlatform) * 100).toFixed(1)}%</span></li>
                 ))}</ul>
               )}
             </div>
@@ -395,10 +395,10 @@ export default function AdminPage() {
         <div className="max-w-md text-center">
           <ShieldOff className="mx-auto h-6 w-6 text-muted-foreground" />
           <h1 className="mt-4 text-xl font-medium">Admin access required</h1>
-          <p className="mt-2 text-[13.5px] text-muted-foreground">{me.isError && errorStatus(me.error) !== 403 ? "We couldn't verify your access right now." : "This area is limited to beta administrators."}</p>
+          <p className="mt-2 text-body text-muted-foreground">{me.isError && errorStatus(me.error) !== 403 ? "We couldn't verify your access right now." : "This area is limited to beta administrators."}</p>
           <div className="mt-5 flex justify-center gap-2">
             {me.isError && <Button variant="outline" size="sm" onClick={() => me.refetch()} data-testid="button-retry-admin">Try again</Button>}
-            <Link href="/beta" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground" data-testid="link-back-beta">Back to beta</Link>
+            <Link href="/beta" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-body font-medium text-primary-foreground" data-testid="link-back-beta">Back to beta</Link>
           </div>
         </div>
       </main>
@@ -411,14 +411,14 @@ export default function AdminPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8">
           <Brand href="/admin" sub="App administration" />
           <div className="flex items-center gap-1">
-            <Link href="/beta" className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-primary" data-testid="link-portal"><ArrowLeft className="h-4 w-4" /> Portal</Link>
+            <Link href="/beta" className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-body font-medium text-muted-foreground hover:text-primary" data-testid="link-portal"><ArrowLeft className="h-4 w-4" /> Portal</Link>
             <Button variant="ghost" size="sm" onClick={() => { qc.clear(); void signOut({ redirectUrl: basePath || "/" }); }} data-testid="button-sign-out"><LogOut className="mr-1.5 h-4 w-4" /> Sign out</Button>
           </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
         <h1 className="text-[26px] font-medium tracking-tight">App administration</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">Manage signed-in app accounts, review access requests and feedback, and view usage. The synthetic practice staff roster is sample data, not login accounts. Approvals do not send email — share the sign-up link yourself.</p>
+        <p className="mt-1 text-body text-muted-foreground">Manage signed-in app accounts, review access requests and feedback, and view usage. The synthetic practice staff roster is sample data, not login accounts. Approvals do not send email — share the sign-up link yourself.</p>
         <Tabs defaultValue="users" className="mt-6">
           <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 sm:w-auto">
             {[["requests", "Requests"], ["users", "Users"], ["feedback", "Feedback"], ["usage", "Usage"]].map(([v, l]) => (

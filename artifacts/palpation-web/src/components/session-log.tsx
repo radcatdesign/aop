@@ -36,32 +36,34 @@ function SessionRow({ s, highlight, defaultOpen }: { s: BetaSession; highlight: 
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-foreground">
+          <span className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground">
             {startedText(s.startedAt)}
-            {highlight && <span className="rounded-full bg-primary px-2 py-px text-[10.5px] font-semibold text-primary-foreground">Just ended</span>}
+            {highlight && <span className="rounded-full bg-primary px-2 py-px text-xs font-semibold text-primary-foreground">Just ended</span>}
           </span>
-          <span className="mt-0.5 block text-[12px] text-muted-foreground">{endText(s)}</span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">
+            {s.mode === "fresh" ? "Fresh start" : "Demo data"}{s.walkthrough ? " · Walkthrough" : ""} · {endText(s)}
+          </span>
         </span>
         <span className="text-right">
-          <span className="block text-[13px] font-semibold tabular-nums text-foreground" data-testid={`text-session-length-${s.id}`}>{lengthText(s)}</span>
-          <span className="block text-[11.5px] text-muted-foreground">{count} {count === 1 ? "note" : "notes"}</span>
+          <span className="block text-body font-semibold tabular-nums text-foreground" data-testid={`text-session-length-${s.id}`}>{lengthText(s)}</span>
+          <span className="block text-caption text-muted-foreground">{count} {count === 1 ? "note" : "notes"}</span>
         </span>
         <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {open && (
         <div className="px-4 pb-4">
           {count === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-3 py-3 text-[12.5px] text-muted-foreground">No feedback sent during this session.</p>
+            <p className="rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">No feedback sent during this session.</p>
           ) : (
             <ul className="space-y-2">
               {s.feedback.map((f) => (
                 <li key={f.id} className="rounded-lg border border-border bg-background px-3 py-2.5" data-testid={`row-session-feedback-${f.id}`}>
-                  <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-caption text-muted-foreground">
                     <span className="font-semibold uppercase tracking-wider">{f.category}</span>
                     {f.rating && <span>· {f.rating}/5</span>}
                     <span className="ml-auto"><StatusPill value={f.status} /></span>
                   </div>
-                  <p className="mt-1 flex items-start gap-1.5 text-[12px] text-muted-foreground" data-testid={`text-session-feedback-area-${f.id}`}>
+                  <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground" data-testid={`text-session-feedback-area-${f.id}`}>
                     <MapPin className="mt-[3px] h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                     <span>
                       <span className="font-medium text-foreground/80">{areaLabel(f.area) ?? f.screen}</span>
@@ -69,7 +71,7 @@ function SessionRow({ s, highlight, defaultOpen }: { s: BetaSession; highlight: 
                       {f.page && f.area && f.page !== f.area && <> · sent from {areaLabel(f.page) ?? f.page}</>}
                     </span>
                   </p>
-                  <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-[13px] text-foreground">{f.message}</p>
+                  <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-body text-foreground">{f.message}</p>
                 </li>
               ))}
             </ul>
@@ -93,7 +95,7 @@ export function SessionLog({ highlightId }: { highlightId?: string | null }) {
   const total = sessions.reduce((n, s) => n + s.feedback.length, 0);
   return (
     <div>
-      <p className="mb-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+      <p className="mb-2 flex items-center gap-1.5 text-sm text-muted-foreground">
         <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" /> {sessions.length} {sessions.length === 1 ? "session" : "sessions"} · {total} {total === 1 ? "note" : "notes"} sent during sessions
       </p>
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
