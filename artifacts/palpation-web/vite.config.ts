@@ -27,8 +27,18 @@ if (!basePath) {
   );
 }
 
+// Vercel's Clerk integration sets CLERK_PUBLISHABLE_KEY / NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+// not the VITE_ name the app reads. Publishable keys are public, so inlining is safe.
+const clerkPublishableKey =
+  process.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  process.env.CLERK_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 export default defineConfig({
   base: basePath,
+  define: clerkPublishableKey
+    ? { 'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey) }
+    : {},
   plugins: [
     react(),
     tailwindcss({ optimize: false }),

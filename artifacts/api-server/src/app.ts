@@ -36,7 +36,8 @@ app.use(
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(clerkMiddleware((req) => ({
-  publishableKey: publishableKeyFromHost(getClerkProxyHost(req) ?? "", process.env.CLERK_PUBLISHABLE_KEY),
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY ||
+    publishableKeyFromHost(getClerkProxyHost(req) ?? "", process.env.CLERK_PUBLISHABLE_KEY),
 })));
 // Never wildcard credentials. Untrusted cross-origin actual responses require a
 // verified Clerk bearer session; only the exact Expo preview origin can submit
