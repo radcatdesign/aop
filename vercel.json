@@ -7,7 +7,10 @@
       "buildCommand": "BASE_PATH=/ PORT=5173 NODE_ENV=production pnpm run build",
       "outputDirectory": "dist/public",
       "rewrites": [
-        { "source": "/(.*)", "destination": "/index.html" }
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
       ]
     },
     "api": {
@@ -17,7 +20,23 @@
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/__clerk/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }

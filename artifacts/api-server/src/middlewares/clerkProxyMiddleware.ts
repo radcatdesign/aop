@@ -24,7 +24,13 @@ import type { RequestHandler } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
-export const CLERK_PROXY_PATH = '/api/__clerk';
+// Clerk's dashboard sets the proxy URL (on Vercel: https://<host>/__clerk).
+// When CLERK_PROXY_URL is set, mount at its path and send it verbatim so Clerk
+// can match the request to the instance. Replit default stays /api/__clerk.
+const CONFIGURED_PROXY_URL = process.env.CLERK_PROXY_URL?.trim().replace(/\/+$/, '') || undefined;
+export const CLERK_PROXY_PATH = CONFIGURED_PROXY_URL
+  ? new URL(CONFIGURED_PROXY_URL).pathname.replace(/\/+$/, '') || '/__clerk'
+  : '/api/__clerk';
 
 /**
  * Returns the first effective public hostname for the given request,
@@ -75,7 +81,7 @@ export function clerkProxyMiddleware(): RequestHandler {
       proxyReq: (proxyReq, req) => {
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = getClerkProxyHost(req) || '';
-        const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
+        const proxyUrl = CONFIGURED_PROXY_URL ?? `${protocol}://${host}${CLERK_PROXY_PATH}`;
 
         proxyReq.setHeader('Clerk-Proxy-Url', proxyUrl);
         proxyReq.setHeader('Clerk-Secret-Key', secretKey);
