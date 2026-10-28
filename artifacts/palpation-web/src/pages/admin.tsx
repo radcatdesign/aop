@@ -88,7 +88,7 @@ function RequestsTab() {
       onError: (e) => toast({ title: "Update failed", description: errorMessage(e), variant: "destructive" }),
     },
   });
-  const rows = useMemo(() => (q.data ?? []).filter((r) => (status === "all" || r.status === status) && match(search, r.name, r.email, r.practice, r.role)), [q.data, status, search]);
+  const rows = useMemo(() => (q.data ?? []).filter((r) => (status === "all" || r.status === status) && match(search, r.name, r.email, r.practice, r.licenseNumber, r.role)), [q.data, status, search]);
   const signInLink = `${window.location.origin}${basePath}/sign-up`;
   const copy = async () => {
     try { await navigator.clipboard.writeText(signInLink); toast({ title: "Sign-up link copied", description: "Remind them to use the same email they requested with." }); }
@@ -123,7 +123,7 @@ function RequestsTab() {
             <>
               <SheetHeader><SheetTitle>{open.name}</SheetTitle><SheetDescription>{open.email}</SheetDescription></SheetHeader>
               <dl className="mt-6 space-y-4 text-[13px]">
-                {[["Practice", open.practice], ["Role", open.role], ["Requested", formatDate(open.createdAt)], ["Reviewed", formatDate(open.reviewedAt)]].map(([k, v]) => (
+                {[["Practice", open.practice], ["License", open.licenseNumber || "Not provided"], ["Role", open.role], ["Requested", formatDate(open.createdAt)], ["Reviewed", formatDate(open.reviewedAt)]].map(([k, v]) => (
                   <div key={k}><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="mt-0.5">{v}</dd></div>
                 ))}
                 <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reason</dt><dd className="mt-1 whitespace-pre-wrap leading-relaxed">{open.reason}</dd></div>

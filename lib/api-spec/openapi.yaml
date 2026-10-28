@@ -376,6 +376,10 @@ components:
           type: string
           minLength: 1
           maxLength: 160
+        licenseNumber:
+          type: string
+          minLength: 1
+          maxLength: 64
         role:
           type: string
           minLength: 1
@@ -384,7 +388,7 @@ components:
           type: string
           minLength: 1
           maxLength: 4000
-      required: [name, email, practice, role, reason]
+      required: [name, email, practice, licenseNumber, role, reason]
     BetaRequestStatus:
       type: string
       enum: [pending, approved, rejected]
@@ -405,6 +409,8 @@ components:
           type: string
         practice:
           type: string
+        licenseNumber:
+          type: string
         role:
           type: string
         reason:
@@ -417,7 +423,7 @@ components:
         reviewedAt:
           type: [string, "null"]
           format: date-time
-      required: [id, name, email, practice, role, reason, status, createdAt, reviewedAt]
+      required: [id, name, email, practice, licenseNumber, role, reason, status, createdAt, reviewedAt]
     BetaAccessRequestReview:
       type: object
       additionalProperties: false

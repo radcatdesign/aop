@@ -27,6 +27,8 @@ export const betaSubmitRequestBodyEmailMax = 254;
 
 export const betaSubmitRequestBodyPracticeMax = 160;
 
+export const betaSubmitRequestBodyLicenseNumberMax = 64;
+
 export const betaSubmitRequestBodyRoleMax = 120;
 
 export const betaSubmitRequestBodyReasonMax = 4000;
@@ -37,6 +39,7 @@ export const BetaSubmitRequestBody = zod.object({
   "name": zod.string().min(1).max(betaSubmitRequestBodyNameMax),
   "email": zod.string().email().max(betaSubmitRequestBodyEmailMax),
   "practice": zod.string().min(1).max(betaSubmitRequestBodyPracticeMax),
+  "licenseNumber": zod.string().min(1).max(betaSubmitRequestBodyLicenseNumberMax),
   "role": zod.string().min(1).max(betaSubmitRequestBodyRoleMax),
   "reason": zod.string().min(1).max(betaSubmitRequestBodyReasonMax)
 })
@@ -155,6 +158,7 @@ export const BetaAdminListRequestsResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "practice": zod.string(),
+  "licenseNumber": zod.string(),
   "role": zod.string(),
   "reason": zod.string(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
@@ -180,6 +184,7 @@ export const BetaAdminUpdateRequestResponse = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "practice": zod.string(),
+  "licenseNumber": zod.string(),
   "role": zod.string(),
   "reason": zod.string(),
   "status": zod.enum(['pending', 'approved', 'rejected']),

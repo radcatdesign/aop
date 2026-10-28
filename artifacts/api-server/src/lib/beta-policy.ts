@@ -1,9 +1,9 @@
 export function initialBetaAccess(
   verifiedEmail: string,
-  bootstrapEmail: string | undefined,
+  bootstrapEmails: readonly string[],
   requestStatus: "pending" | "approved" | "rejected" | undefined,
 ) {
-  const isBootstrap = Boolean(bootstrapEmail && verifiedEmail === bootstrapEmail);
+  const isBootstrap = bootstrapEmails.includes(verifiedEmail);
   return {
     role: isBootstrap ? "admin" as const : "tester" as const,
     status: isBootstrap || requestStatus === "approved" ? "approved" as const :

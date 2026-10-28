@@ -21,6 +21,11 @@ export interface BetaAccessRequestSubmission {
   practice: string;
   /**
      * @minLength 1
+     * @maxLength 64
+     */
+  licenseNumber: string;
+  /**
+     * @minLength 1
      * @maxLength 120
      */
   role: string;

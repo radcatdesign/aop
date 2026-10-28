@@ -15,6 +15,7 @@ const schema = z.object({
   name: z.string().trim().min(1, "Please share your name.").max(120, "Keep this under 120 characters."),
   email: z.string().trim().min(1, "An email is required.").max(254, "That email is too long.").email("Enter a valid email address."),
   practice: z.string().trim().min(1, "Tell us where you practice.").max(160, "Keep this under 160 characters."),
+  licenseNumber: z.string().trim().min(1, "Your license number is required.").max(64, "Keep this under 64 characters."),
   role: z.string().trim().min(1, "Share your role.").max(120, "Keep this under 120 characters."),
   reason: z.string().trim().min(1, "A sentence or two helps us review.").max(4000, "Keep this under 4000 characters."),
 });
@@ -31,7 +32,7 @@ export default function Landing() {
   const submit = useBetaSubmitRequest();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", practice: "", role: "", reason: "" },
+    defaultValues: { name: "", email: "", practice: "", licenseNumber: "", role: "", reason: "" },
   });
 
   const onSubmit = (values: Values) => {
@@ -115,6 +116,14 @@ export default function Landing() {
                           <FormItem><FormLabel>Your role</FormLabel><FormControl><Input autoComplete="organization-title" placeholder="LMT, owner" {...field} data-testid="input-role" /></FormControl><FormMessage /></FormItem>
                         )} />
                       </div>
+                      <FormField control={form.control} name="licenseNumber" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>License number</FormLabel>
+                          <FormControl><Input autoComplete="off" placeholder="e.g. 23517" {...field} data-testid="input-license" /></FormControl>
+                          <FormDescription>Your state massage or bodywork license.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                       <FormField control={form.control} name="reason" render={({ field }) => (
                         <FormItem>
                           <FormLabel>What would you like to evaluate?</FormLabel>

@@ -5,6 +5,7 @@ export const betaRequests = pgTable("beta_requests", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   practice: text("practice").notNull(),
+  licenseNumber: text("license_number").notNull().default(""),
   role: text("role").notNull(),
   reason: text("reason").notNull(),
   status: text("status").$type<"pending" | "approved" | "rejected">().notNull().default("pending"),

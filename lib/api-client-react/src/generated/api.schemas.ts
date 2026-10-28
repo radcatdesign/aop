@@ -32,6 +32,11 @@ export interface BetaAccessRequestSubmission {
   practice: string;
   /**
      * @minLength 1
+     * @maxLength 64
+     */
+  licenseNumber: string;
+  /**
+     * @minLength 1
      * @maxLength 120
      */
   role: string;
@@ -74,6 +79,7 @@ export interface BetaAccessRequest {
   name: string;
   email: string;
   practice: string;
+  licenseNumber: string;
   role: string;
   reason: string;
   status: BetaRequestStatus;

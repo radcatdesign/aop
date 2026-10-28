@@ -12,6 +12,7 @@ export interface BetaAccessRequest {
   name: string;
   email: string;
   practice: string;
+  licenseNumber: string;
   role: string;
   reason: string;
   status: BetaRequestStatus;

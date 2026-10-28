@@ -40,6 +40,7 @@ function AuthForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [practice, setPractice] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
   const [role, setRole] = useState('');
   const [reason, setReason] = useState('');
   const [password, setPassword] = useState('');
@@ -67,8 +68,8 @@ function AuthForm() {
     } });
   };
   const submitRequest = () => execute(async () => {
-    if (![name, email, practice, role, reason].every(v => v.trim())) throw new Error('Please complete every field.');
-    await request.mutateAsync({ data: { name: name.trim(), email: email.trim(), practice: practice.trim(), role: role.trim(), reason: reason.trim() } });
+    if (![name, email, practice, licenseNumber, role, reason].every(v => v.trim())) throw new Error('Please complete every field.');
+    await request.mutateAsync({ data: { name: name.trim(), email: email.trim(), practice: practice.trim(), licenseNumber: licenseNumber.trim(), role: role.trim(), reason: reason.trim() } });
     setDone(true);
   });
   const submitSignIn = () => execute(async () => {
@@ -123,7 +124,7 @@ function AuthForm() {
   return <AccessScreen title={title} subtitle={isRequest ? 'Request access to the private beta. Explore a fictional practice day after approval.' : 'Your account identifies you as a tester. This app is not for patient records.'}>
     <View style={[styles.notice, { backgroundColor: c.secondary, borderColor: c.sageLine }]}><Feather name="shield" color={c.primary} size={18} /><Text style={[styles.noticeText, { color: c.pineDeep }]}>Synthetic examples only. Do not enter real patient or clinical information in this beta, including feedback.</Text></View>
     {isRequest ? done ? <Text accessibilityRole="alert" style={[styles.body, { color: c.primary }]}>Request received. Access is reviewed manually; this does not create an account or send an automatic invitation.</Text> : <>
-      {field('Your name', name, setName)}{field('Email', email, setEmail, { email: true })}{field('Practice', practice, setPractice)}{field('Role', role, setRole)}{field('Why would you like to try the beta?', reason, setReason, { multiline: true })}
+      {field('Your name', name, setName)}{field('Email', email, setEmail, { email: true })}{field('Practice', practice, setPractice)}{field('License number', licenseNumber, setLicenseNumber)}{field('Role', role, setRole)}{field('Why would you like to try the beta?', reason, setReason, { multiline: true })}
       {button('Request beta access', submitRequest)}
     </> : <>
       {(mode === 'sign-in' || mode === 'sign-up' || mode === 'reset') && field('Email', email, setEmail, { email: true })}

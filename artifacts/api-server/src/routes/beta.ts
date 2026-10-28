@@ -84,9 +84,9 @@ router.post("/requests", wrap(async (req, res) => {
   const body = parse(BetaSubmitRequestBody.strict(), req.body);
   const email = normalizeEmail(body.email);
   const trim = (value: string) => value.trim();
-  if (![body.name, body.practice, body.role, body.reason].every(v => trim(v).length > 0)) throw new HttpError(400, "Invalid input");
+  if (![body.name, body.practice, body.licenseNumber, body.role, body.reason].every(v => trim(v).length > 0)) throw new HttpError(400, "Invalid input");
   await db.insert(betaRequests).values({
-    email, name: trim(body.name), practice: trim(body.practice), role: trim(body.role), reason: trim(body.reason),
+    email, name: trim(body.name), practice: trim(body.practice), licenseNumber: trim(body.licenseNumber), role: trim(body.role), reason: trim(body.reason),
   }).onConflictDoNothing({ target: betaRequests.email });
   res.json({ message: "Thank you. If eligible, we'll be in touch." });
 }));
@@ -101,7 +101,8 @@ router.get("/me", wrap(async (req, res) => {
   if (!primary) throw new HttpError(403, "A verified primary email is required");
   const email = normalizeEmail(primary.emailAddress);
   const name = `${identity.firstName ?? ""} ${identity.lastName ?? ""}`.trim() || email.split("@")[0];
-  const bootstrap = normalizeEmail(process.env.BETA_BOOTSTRAP_ADMIN_EMAIL ?? "");
+  // Comma-separated list. Each address becomes admin on its first sign-in only.
+  const bootstrap = (process.env.BETA_BOOTSTRAP_ADMIN_EMAIL ?? "").split(",").map(normalizeEmail).filter(Boolean);
   // Serialize against request decisions. Only a first INSERT may bootstrap admin;
   // existing accounts never inherit the bootstrap role on later /me calls.
   const client = await pool.connect();
@@ -206,7 +207,7 @@ router.patch("/admin/requests/:id", wrap(async (req, res) => {
       WHERE email = $1 AND role = 'tester' AND status <> 'suspended'`, [request.rows[0].email, body.status]);
     await client.query("COMMIT");
     const row = updated.rows[0] as Record<string, unknown>;
-    res.json({ id: row.id, name: row.name, email: row.email, practice: row.practice, role: row.role, reason: row.reason,
+    res.json({ id: row.id, name: row.name, email: row.email, practice: row.practice, licenseNumber: row.license_number, role: row.role, reason: row.reason,
       status: row.status, createdAt: (row.created_at as Date).toISOString(), reviewedAt: iso(row.reviewed_at as Date | null) });
   } catch (err) { await client.query("ROLLBACK"); throw err; }
   finally { client.release(); }

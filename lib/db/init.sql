@@ -31,6 +31,7 @@ CREATE TABLE "beta_requests" (
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"practice" text NOT NULL,
+	"license_number" text DEFAULT '' NOT NULL,
 	"role" text NOT NULL,
 	"reason" text NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
