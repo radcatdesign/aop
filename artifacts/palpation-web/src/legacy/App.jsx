@@ -2103,7 +2103,9 @@ function Charting({ state, dispatch, client, chartFocus, clearChartFocus }) {
         <span className="pill" style={{ marginLeft: "auto" }}>{mine.length} finding{mine.length === 1 ? "" : "s"}</span>
       </div>
 
-      <BodyAssessment findings={mine} onChange={setMine} client={c} onDictate={dictate} />
+      {/* Open on the side where this client's findings are; remount per client. */}
+      <BodyAssessment key={cid} findings={mine} onChange={setMine} client={c} onDictate={dictate}
+        initialView={mine.filter((f) => f.view === "posterior").length > mine.filter((f) => f.view !== "posterior").length ? "posterior" : "anterior"} />
 
       <div className="two" style={{ marginTop: 16 }}>
         <section className="card pad">
@@ -3316,7 +3318,7 @@ function AopRegion({ region: r, uid, view, active, severity, match, dim, onSelec
 
 // ── SCOPED STYLES ──────────────────────────────────────────────────────────
 const AOP_CSS = `
-.aop-body{--pine:#14554A;--pine-deep:#0E3D35;--pine-soft:#2C7264;--gold:#B88A32;--gold-soft:#D6B25E;--sage:#E8F0EB;--paper:#F4F6F2;--ink:#16211F;--muted:#5F6F6A;--border:#E3E8E2;--rose:#A23C37;--target:44px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--paper);border:1px solid var(--border);border-radius:22px;padding:24px;max-width:1440px;margin:auto;line-height:1.5;color-scheme:light}
+.aop-body{--pine:#14554A;--pine-deep:#0E3D35;--pine-soft:#2C7264;--gold:#B88A32;--gold-soft:#D6B25E;--sage:#E8F0EB;--paper:#F4F6F2;--ink:#16211F;--muted:#5F6F6A;--border:#E3E8E2;--rose:#A23C37;--target:44px;font-family:var(--font-ui,Inter,system-ui,-apple-system,"Segoe UI",sans-serif);color:var(--ink);background:var(--paper);border:1px solid var(--border);border-radius:22px;padding:24px;max-width:1440px;margin:auto;line-height:1.5;color-scheme:light}
 .aop-body.aop-compact{--target:52px;padding:14px}
 .aop-body *{box-sizing:border-box}
 .aop-body button,.aop-body input,.aop-body textarea,.aop-body select{font:inherit;color:inherit}
@@ -3332,9 +3334,9 @@ const AOP_CSS = `
 .aop-body .aop-region:focus-visible use{stroke:var(--gold);stroke-width:4}
 .aop-body h2,.aop-body h3,.aop-body p{margin:0}
 .aop-body h2{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:500;line-height:1.2}
-.aop-body h3{font-size:16px}
-.aop-body .aop-eyebrow{font-size:11px;letter-spacing:.13em;font-weight:700;text-transform:uppercase;color:var(--pine-soft)}
-.aop-body .aop-muted{font-size:13px;color:var(--muted)}
+.aop-body h3{font-size:var(--fs-lead,17px)}
+.aop-body .aop-eyebrow{font-size:var(--fs-caption,13px);letter-spacing:.13em;font-weight:700;text-transform:uppercase;color:var(--pine-soft)}
+.aop-body .aop-muted{font-size:var(--fs-body,15px);color:var(--muted)}
 .aop-body .aop-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .aop-body .aop-top h2{margin:5px 0 7px}
 .aop-body .aop-client{text-align:right;max-width:340px;overflow-wrap:anywhere}
@@ -3344,60 +3346,71 @@ const AOP_CSS = `
 .aop-body .aop-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .aop-body .aop-between{justify-content:space-between}
 .aop-body .aop-tabs{display:flex;gap:6px;flex-wrap:wrap}
-.aop-body .aop-tabs button{text-transform:capitalize;font-size:13px}
+.aop-body .aop-tabs button{text-transform:capitalize;font-size:var(--fs-body,15px)}
 .aop-body .aop-search{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:0 10px}
 .aop-body .aop-search input{border:0;background:transparent;min-width:0;width:100%;outline-offset:0}
 .aop-body .aop-search .aop-icon{border:0;padding:0}
 .aop-body .aop-results{max-height:220px;overflow:auto;display:grid;gap:5px;overscroll-behavior:contain}
-.aop-body .aop-results button{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
-.aop-body .aop-results small{font-size:11px;text-transform:capitalize;white-space:nowrap}
+.aop-body .aop-results button{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:var(--fs-body,15px)}
+.aop-body .aop-results small{font-size:var(--fs-caption,13px);text-transform:capitalize;white-space:nowrap}
 .aop-body .aop-stage{position:relative;background:var(--paper);overflow:hidden}
 .aop-body .aop-svg{display:block;width:100%;height:760px;max-height:78vh;min-height:450px;touch-action:none;user-select:none;-webkit-user-select:none}
 .aop-body .aop-region{cursor:pointer}
-.aop-body .aop-stage-top{position:absolute;z-index:1;top:12px;left:14px;right:14px;display:flex;justify-content:space-between;pointer-events:none;font-size:12px;color:var(--muted)}
+.aop-body .aop-stage-top{position:relative;z-index:1;padding:12px 14px 6px;display:flex;align-items:center;gap:10px;justify-content:space-between;pointer-events:none;font-size:var(--fs-small,14px);color:var(--muted)}
 .aop-body .aop-zoom{display:flex;gap:6px;align-items:center;justify-content:center;padding:12px;border-top:1px solid var(--border);flex-wrap:wrap}
 .aop-body .aop-icon{display:inline-flex;align-items:center;justify-content:center;padding:10px}
 .aop-body .aop-icon svg{width:18px;height:18px;flex-shrink:0}
-.aop-body .aop-tooltip{position:absolute;bottom:12px;left:12px;right:12px;pointer-events:none;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 13px;font-size:13px}
-.aop-body .aop-note-line{padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.aop-body .aop-tooltip{position:absolute;bottom:12px;left:12px;right:12px;pointer-events:none;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 13px;font-size:var(--fs-body,15px)}
+.aop-body .aop-note-line{padding:12px 16px;border-top:1px solid var(--border);font-size:var(--fs-small,14px);color:var(--muted)}
 .aop-body .aop-inspector{padding:20px;display:grid;gap:16px}
 .aop-body .aop-inspector h2{font-size:28px;overflow-wrap:anywhere}
 .aop-body .aop-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
-.aop-body .aop-badge{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;text-transform:capitalize;white-space:nowrap}
+.aop-body .aop-badge{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:var(--fs-caption,13px);text-transform:capitalize;white-space:nowrap}
 .aop-body .aop-deep{border-style:dashed;color:var(--pine)}
-.aop-body .aop-label{font-size:12px;font-weight:650;display:block;margin-bottom:7px}
+.aop-body .aop-label{font-size:var(--fs-small,14px);font-weight:650;display:block;margin-bottom:7px}
 .aop-body fieldset{border:0;padding:0;margin:0;min-width:0}
 .aop-body legend{padding:0}
 .aop-body .aop-severity{display:flex;gap:6px}
-.aop-body .aop-severity button{flex:1;padding:9px 6px;font-size:13px}
+.aop-body .aop-severity button{flex:1;padding:9px 6px;font-size:var(--fs-body,15px)}
 .aop-body .aop-severity button[aria-pressed=true]{outline:2px solid currentColor;outline-offset:-3px}
 .aop-body textarea{resize:vertical;width:100%;min-height:106px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--paper)}
 .aop-body select{border:1px solid var(--border);border-radius:9px;background:white;padding:8px;width:100%}
 .aop-body .aop-chips{display:flex;flex-wrap:wrap;gap:6px}
-.aop-body .aop-chips button{font-size:12px;padding:8px 10px}
+.aop-body .aop-chips button{font-size:var(--fs-small,14px);padding:8px 10px}
 .aop-body .aop-actions{display:grid;grid-template-columns:1fr auto;gap:8px}
 .aop-body .aop-actions button{display:flex;gap:7px;align-items:center;justify-content:center}
 .aop-body .aop-findings-head{padding:16px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .aop-body .aop-findings{padding:0 14px 16px;max-height:430px;overflow:auto;overscroll-behavior:contain}
-.aop-body .aop-findings h4{text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--muted);margin:15px 6px 9px}
+.aop-body .aop-findings h4{text-transform:uppercase;letter-spacing:.12em;font-size:var(--fs-micro,12px);color:var(--muted);margin:15px 6px 9px}
 .aop-body .aop-finding{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border:1px solid var(--border);border-radius:12px;padding:9px;margin-bottom:8px}
 .aop-body .aop-finding[data-selected=true]{border-color:var(--pine);background:var(--sage)}
 .aop-body .aop-finding-main{text-align:left;border:0;background:transparent;overflow-wrap:anywhere;display:grid;gap:7px;padding:4px}
-.aop-body .aop-finding-main strong{font-size:13px}
-.aop-body .aop-finding-main .aop-finding-note{font-size:13px;white-space:pre-wrap}
+.aop-body .aop-finding-main strong{font-size:var(--fs-body,15px)}
+.aop-body .aop-finding-main .aop-finding-note{font-size:var(--fs-body,15px);white-space:pre-wrap}
 .aop-body .aop-finding .aop-icon{align-self:start;color:var(--rose)}
-.aop-body .aop-empty{padding:20px;font-size:13px;color:var(--muted)}
-.aop-body .aop-status{font-size:12px;color:var(--pine);min-height:18px;margin-top:12px}
+.aop-body .aop-empty{padding:20px;font-size:var(--fs-body,15px);color:var(--muted)}
+.aop-body .aop-status{font-size:var(--fs-small,14px);color:var(--pine);min-height:18px;margin-top:12px}
 .aop-body .aop-dialog{border:1px solid var(--border);border-radius:16px;max-width:420px;width:calc(100% - 32px);padding:24px;color:var(--ink);background:#fff;font:inherit}
 .aop-body .aop-dialog::backdrop{background:rgb(14 61 53 / .3)}
 .aop-body .aop-dialog p{margin:12px 0 20px}
 .aop-body .aop-danger{color:var(--rose)}
 .aop-body .aop-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.aop-body details summary{display:flex;align-items:center;font-size:13px;color:var(--pine)}
+.aop-body details summary{display:flex;align-items:center;font-size:var(--fs-body,15px);color:var(--pine)}
 .aop-body .aop-pin{cursor:pointer;filter:drop-shadow(0 1px 2px rgb(22 33 31 / .15))}
 .aop-body .aop-pin:focus-visible circle{stroke:var(--gold);stroke-width:3}
 @media(max-width:800px){.aop-body{padding:12px}.aop-body .aop-layout{grid-template-columns:minmax(0,1fr)}.aop-body .aop-top{align-items:flex-start}.aop-body .aop-client{text-align:left}.aop-body .aop-svg{height:650px;max-height:75vh}.aop-body .aop-inspector{padding:16px}.aop-body .aop-findings{max-height:360px}}
 @media(prefers-reduced-motion:reduce){.aop-body *{scroll-behavior:auto}}
+
+.aop-body .aop-flip{pointer-events:auto;display:inline-flex;gap:2px;padding:3px;background:#fff;border:1px solid var(--border);border-radius:999px;box-shadow:0 6px 18px rgba(22,33,31,.08)}
+.aop-body .aop-flip button{min-height:38px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--ink);font-weight:600;font-size:var(--fs-small,14px);cursor:pointer}
+.aop-body .aop-flip button:hover{background:var(--sage)}
+.aop-body .aop-flip button small{font-size:var(--fs-micro,12px);font-weight:500;color:var(--muted)}
+.aop-body .aop-flip button[aria-pressed=true]{background:var(--pine);color:#fff}
+.aop-body .aop-flip button[aria-pressed=true] small{color:rgba(255,255,255,.75)}
+.aop-body .aop-flip b{min-width:20px;height:20px;padding:0 6px;display:inline-grid;place-items:center;border-radius:999px;background:var(--gold);color:#fff;font-size:var(--fs-micro,12px);font-weight:700}
+.aop-body .aop-flip button:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+.aop-body.aop-compact .aop-flip button{min-height:44px}
+@media (max-width:480px){.aop-body .aop-flip button small{display:none}.aop-body .aop-flip button{padding:0 11px}}
 `;
 
 // ── PANEL ─────────────────────────────────────────────────────────────────
@@ -3597,6 +3610,7 @@ function BodyAssessment({ findings = AOP_EMPTY, onChange, client, onDictate, ini
     else if (e.key === '+' || e.key === '=') { e.preventDefault(); moveCamera(aopZoom(c, c.k + .25)); }
     else if (e.key === '-') { e.preventDefault(); moveCamera(aopZoom(c, c.k - .25)); }
     else if (e.key === 'Home') { e.preventDefault(); resetView(); }
+    else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); changeView(view === 'anterior' ? 'posterior' : 'anterior'); }
   }
   useEffect(() => {
     const svg = svgRef.current;
@@ -3641,7 +3655,19 @@ function BodyAssessment({ findings = AOP_EMPTY, onChange, client, onDictate, ini
           {q ? <><div className="aop-row aop-between"><span className="aop-muted" role="status">{matches.length} matching structures</span><button type="button" aria-pressed={onlyMatches} onClick={() => setOnlyMatches(x => !x)}>Only matches</button></div><div className="aop-results" aria-label="Search results">{matches.map(r => <button type="button" key={r.id} aria-pressed={activeId === r.id} onClick={() => selectRegion(r, true)}><span>{r.name}{r.deep ? ' · Deep' : ''}</span><small>{AOP_SIDE[r.side]} · {r.view}</small></button>)}{!matches.length && <p className="aop-muted">No structures found. Try “trap”, “gastroc”, or “supinator”.</p>}</div></> : <details><summary>Browse all {atlas.length} structures</summary><div className="aop-results">{atlas.map(r => <button type="button" key={r.id} onClick={() => selectRegion(r, true)}><span>{r.name}{r.deep ? ' · Deep' : ''}</span><small>{AOP_SIDE[r.side]} · {r.view}</small></button>)}</div></details>}
         </div>
         <div className="aop-stage">
-          <div className="aop-stage-top"><span>{bodyType.toUpperCase()} · {view.toUpperCase()}</span><span>{Math.round(camera.k * 100)}%</span></div>
+          <div className="aop-stage-top">
+            <span>{bodyType === 'female' ? 'Female' : 'Male'}</span>
+            <div className="aop-flip" role="group" aria-label="Body view: anterior or posterior (press F on the diagram to flip)">
+              {['anterior', 'posterior'].map(v => {
+                const n = displayed.filter(f => f.view === v).length;
+                return <button type="button" key={v} aria-pressed={view === v} onClick={() => changeView(v)} data-testid={`button-body-${v}`}>
+                  <span>{v === 'anterior' ? 'Anterior' : 'Posterior'}</span><small>{v === 'anterior' ? 'front' : 'back'}</small>
+                  {n > 0 && <b aria-label={`${n} ${n === 1 ? 'finding' : 'findings'}`}>{n}</b>}
+                </button>;
+              })}
+            </div>
+            <span>{Math.round(camera.k * 100)}%</span>
+          </div>
           <svg ref={svgRef} className="aop-svg" viewBox="0 0 400 900" tabIndex={0} role="group"
             aria-label={`${bodyType} ${view} body map`} aria-describedby={`${uid}-help`}
             onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={e => pointerEnd(e)}
