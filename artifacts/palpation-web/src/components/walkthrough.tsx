@@ -61,7 +61,7 @@ export const WALKTHROUGH_STEPS: Step[] = [
   {
     id: "charting", view: "charting", target: "[data-tour=nav-charting]", eyebrow: "Clinical", title: "Charting: map findings on the body",
     body: "Record where you found tension, trigger points or restrictions, how severe they are, and how they change over time.",
-    howTo: ["Pick a client, then tap a structure on the body chart or search the atlas.", "Switch between Anterior and Posterior, and between surface, muscle and skeletal views.", "Set severity, add a note and save the finding. For patients, build the monthly report to the referring doctor here."],
+    howTo: ["Pick a client, then tap a structure on the body chart or search the atlas.", "Use the Anterior / Posterior switch above the body to flip front and back (or press F). Each side shows how many findings it has.", "Set severity, add a note and save the finding. For patients, build the monthly report to the referring doctor here."],
   },
   {
     id: "documents", view: "documents", target: "[data-tour=nav-documents]", eyebrow: "Clinical", title: "Documents: paperwork, filed by client",
