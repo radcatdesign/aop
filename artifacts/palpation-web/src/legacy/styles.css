@@ -190,3 +190,24 @@ html{background:var(--paper);scroll-behavior:smooth}body{margin:0}.aop{font-size
 .aop .nav-group-label{color:#7a877d}.aop .eyebrow{color:#78897b}.metric-description,.metric-description .team-mini>span,.metric-value small{color:#77877b}.panel-heading p,.agenda-client small,.agenda-provider,.agenda-provider small,.attention-copy small,.team-person small,.quick-panel p{color:#7b8a7f}.agenda-time>span,.team-status,.panel-footer,.attention-footer,.chart-legend{color:#7e8d81}.attention-copy strong{color:#4c6555;font-size:11px}.attention-copy small{font-size:10px}.team-person strong{font-size:11px}.team-person small{font-size:9px}.panel-heading p{font-size:11px}.metric-description{font-size:10px}.agenda-client small{font-size:10px}.agenda-provider{font-size:10px}.agenda-provider small{font-size:9px}.status-tag{font-size:9px}.task-category{font-size:9px}.line-tabs button{font-size:10px}.panel-footer{font-size:9px}.quick-panel p{font-size:11px}.agenda-client strong{font-size:12px}.soft-avatar{font-size:10px}.aop .tbl{font-size:12px}.aop .tbl th{font-size:10px}.aop .tbl .muted{font-size:11px!important}
 @media(max-width:1250px) and (min-width:1051px){.agenda-client strong{font-size:11px}.agenda-client small{font-size:9px}.attention-copy strong{font-size:10px}.status-tag{font-size:8px}.line-tabs button{font-size:9px}}
 @media(max-width:520px){.metric-description{font-size:9px}.agenda-client strong{font-size:11px}.agenda-client small{font-size:9px}.status-tag{font-size:8px}.line-tabs button{font-size:10px}.panel-heading p{font-size:10px}.panel-footer{font-size:8px}.agenda-client{gap:8px}.soft-avatar{font-size:9px}}
+/* Plan of care */
+.aop .poc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:560px){.aop .poc-grid{grid-template-columns:1fr}}
+.aop .poc-rule{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:9px 0;font-size:13px}
+.aop .poc-rule .inp{padding:7px 9px}
+.aop .poc-alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:#FBF3E2;color:#6B4E14;border:1px solid #EAD7A8;font-size:13px;line-height:1.45}
+.aop .poc-alert svg{flex:0 0 auto;margin-top:2px}
+.aop .poc-alert strong{display:block;font-size:13.5px}
+.aop .poc-alert.is-overdue{background:#F8E7E5;color:#8A2E29;border-color:#ECC4C0}
+.aop .poc-bar{height:6px;border-radius:99px;background:var(--border);overflow:hidden;margin:2px 0 6px}
+.aop .poc-bar span{display:block;height:100%;background:var(--pine);border-radius:inherit}
+.aop .poc-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:10px 14px;margin:-4px 0 14px;border-radius:10px;background:var(--sage,#E8F0EB);font-size:13px}
+.aop .poc-strip strong{font-weight:600}
+.aop .note-kind{display:inline-flex;flex-wrap:wrap;gap:4px;padding:3px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.aop .note-kind button{border:0;background:transparent;border-radius:7px;padding:7px 11px;font:inherit;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer}
+.aop .note-kind button[aria-pressed=true]{background:var(--pine);color:#fff}
+.aop .note-kind button:disabled{cursor:default}
+.aop .note-kind button .rec{margin-left:5px;font-size:11px;opacity:.85}
+.aop .poc-due{font-weight:600;color:#8A6416}
+.aop .poc-strip>span,.aop .poc-head{display:inline-flex;align-items:center;gap:5px}
+.aop .poc-strip svg,.aop .poc-head svg{display:inline-block;flex:0 0 auto}

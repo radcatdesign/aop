@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowRight, CalendarDays, Check, ChevronDown, ChevronRight, CircleDollarSign, ClipboardList, Clock, FileText, MoreHorizontal, Plus, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowRight, CalendarCheck, CalendarDays, Check, ChevronDown, ChevronRight, CircleDollarSign, ClipboardList, Clock, FileText, MoreHorizontal, Plus, ShieldCheck, Users } from 'lucide-react';
+import { NOTE_KINDS, pocStatus, fmtDay } from './poc.js';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const formatMoney = (n) => '$' + Math.round(n).toLocaleString('en-US');
@@ -16,7 +17,7 @@ function Metric({ label, value, icon: Icon, children, progress }) {
   </div>;
 }
 
-export default function Dashboard({ state, prov, client, go, dueNotes, dueInvoices, setApptFocus, setNewAppt, date }) {
+export default function Dashboard({ state, prov, client, go, dueNotes, dueInvoices, setApptFocus, setNewAppt, date, openClient }) {
   const [tab, setTab] = useState('all');
   const [provider, setProvider] = useState('all');
   const active = state.appts.filter(a => !['cxl', 'noshow'].includes(a.status));
@@ -27,7 +28,14 @@ export default function Dashboard({ state, prov, client, go, dueNotes, dueInvoic
   const activeProviders = state.providers.filter(p => p.clockedIn);
   const consentDue = [...new Set(active.map(a => a.clientId))].filter(id => !client(id)?.consent).length;
   const renewals = state.providers.filter(p => p.licenseDays <= 60);
+  // Plan-of-care reminders from each client's documentation rules.
+  const pocs = state.clients.filter(c => !c.archived).map(c => [c, pocStatus(c, date)]).filter(([, s]) => s);
+  const pocItems = pocs.flatMap(([c, s]) => [
+    ...(s.reevalDue ? [{ title: `${s.reevalOverdue ? 'Re-evaluation overdue' : 'Re-evaluation due'}: ${c.name}`, description: s.reevalOverdue ? `Plan of care ended ${fmtDay(s.poc.end)}.` : `Plan of care ends ${fmtDay(s.poc.end)} · ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'} left.`, icon: CalendarCheck, onClick: () => openClient?.(c.id), target: 'clients', badge: 'Plan of care', tone: s.reevalOverdue ? 'rose' : 'amber' }] : []),
+    ...(!s.reevalDue && s.progressDue ? [{ title: `Progress note due: ${c.name}`, description: `Visit ${s.next} needs a progress note (every ${s.every} visits).`, icon: CalendarCheck, onClick: () => openClient?.(c.id), target: 'clients', badge: 'Plan of care', tone: 'amber' }] : []),
+  ]);
   const items = [
+    ...pocItems,
     ...(dueNotes ? [{ title: `${dueNotes} note${dueNotes === 1 ? '' : 's'} ready to finish`, description: 'Complete documentation for recent visits.', icon: ClipboardList, target: 'soap', badge: 'Clinical', tone: 'amber' }] : []),
     ...(dueInvoices ? [{ title: `${formatMoney(outstanding)} in unpaid invoices`, description: `${dueInvoices} invoices awaiting payment.`, icon: FileText, target: 'invoicing', badge: 'Billing', tone: 'blue' }] : []),
     ...(consentDue ? [{ title: `${consentDue} consent form${consentDue === 1 ? '' : 's'} needed`, description: 'Review before the next appointment.', icon: ShieldCheck, target: 'clients', badge: 'Front office', tone: 'rose' }] : []),
@@ -70,7 +78,7 @@ export default function Dashboard({ state, prov, client, go, dueNotes, dueInvoic
                 <div className="agenda-rule"><span style={{ background: p.color }} /></div>
                 <button className="agenda-client" onClick={() => openAppt(a.id)} aria-label={`Open appointment for ${c.name}`}>
                   <span className="soft-avatar" style={{ '--avatar-color': p.color }}>{initials(c.name)}</span>
-                  <span><strong>{c.name}{next && <em>UP NEXT</em>}</strong><small>{a.svc} <span>·</span> {a.room}</small></span>
+                  <span><strong>{c.name}{next && <em>UP NEXT</em>}</strong><small>{a.svc} <span>·</span> {a.room}{(() => { const s = a.status !== 'done' && a.status !== 'cxl' ? pocStatus(c, date) : null; return s && s.recommended !== 'daily' ? <> <span>·</span> <b className="poc-due">{NOTE_KINDS[s.recommended]} due</b></> : null; })()}</small></span>
                 </button>
                 <div className="agenda-provider">{p.name}<small>{p.role}</small></div>
                 <span className={`status-tag status-${a.status}`}><i />{statuses[a.status]}</span>
@@ -93,7 +101,7 @@ export default function Dashboard({ state, prov, client, go, dueNotes, dueInvoic
       <aside className="dashboard-secondary">
         <section className="card attention-panel">
           <div className="panel-heading"><div><h2>Needs your attention <span className="count-badge amber-count">{items.length}</span></h2><p>A few things to keep moving.</p></div></div>
-          <div className="attention-items">{items.map((item, i) => <button className="attention-item" onClick={() => go(item.target)} key={i}><span className={`task-icon ${item.tone}`}><item.icon size={17} strokeWidth={1.7} /></span><span className="attention-copy"><strong>{item.title}</strong><small>{item.description}</small><span className="task-category">{item.badge}<ChevronRight size={12} /></span></span></button>)}{!items.length && <div className="empty"><Check size={24} /><p>You’re all caught up.</p></div>}</div>
+          <div className="attention-items">{items.map((item, i) => <button className="attention-item" onClick={() => (item.onClick ? item.onClick() : go(item.target))} key={i}><span className={`task-icon ${item.tone}`}><item.icon size={17} strokeWidth={1.7} /></span><span className="attention-copy"><strong>{item.title}</strong><small>{item.description}</small><span className="task-category">{item.badge}<ChevronRight size={12} /></span></span></button>)}{!items.length && <div className="empty"><Check size={24} /><p>You’re all caught up.</p></div>}</div>
           <div className="attention-footer"><span className="live-dot" />Your workspace, up to date.</div>
         </section>
 

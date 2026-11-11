@@ -1,4 +1,5 @@
 import { emitBeta } from './betaBridge.js';
+import { NOTE_KINDS, RESETS_PROGRESS, DEFAULT_RULES, pocStatus, fmtDay, addDays } from './poc.js';
 import React, { useReducer, useState, useMemo, useEffect, useRef, useId, useCallback } from "react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -37,9 +38,11 @@ const seed = {
     { id: "p3", name: "Priya Nair", role: "Acupuncturist", color: COLORS[2], type: "1099", pay: "Flat-rate + commission", rate: 0, commission: 0.5, pin: "7782", license: "AC55021", licenseDays: 210, ceHours: 14, ceNeeded: 15, clockedIn: false, clockInAt: null },
   ],
   clients: [
-    { id: "c1", name: "Rosa Delgado", phone: "(972) 555-0142", email: "rosa.delgado@example.com", modality: "Deep Tissue", since: "2024", type: "patient", referral: "Dr. A. Okonkwo · Orthopedics", intake: true, consent: true, balance: 0, plan: "Chronic R-shoulder tension. 6-visit plan, reassess fascia mobility at visit 4.", flags: ["Latex sensitivity"] },
+    { id: "c1", name: "Rosa Delgado", phone: "(972) 555-0142", email: "rosa.delgado@example.com", modality: "Deep Tissue", since: "2024", type: "patient", referral: "Dr. A. Okonkwo · Orthopedics", intake: true, consent: true, balance: 0, plan: "Chronic R-shoulder tension. Myofascial release plus graded overhead loading; home stretches daily.", flags: ["Latex sensitivity"],
+      poc: { start: "2026-04-27", end: "2026-07-03", frequency: "2x/week for 10 weeks", visitsAuthorized: 20, visitsUsed: 9, lastProgressVisit: 0, goals: "Pain under 3/10 with overhead reach. Full pain-free shoulder abduction. Back to desk work without flare-ups.", rules: { progressEvery: 10, reevalAtEnd: true, reevalLeadDays: 7 } } },
     { id: "c2", name: "Trevor Books", phone: "(469) 555-0188", email: "trevor.books@example.com", modality: "Sports", since: "2025", type: "client", referral: null, intake: true, consent: true, balance: 95, plan: "Pre-event maintenance, hamstring + calf focus. Bi-weekly.", flags: [] },
-    { id: "c3", name: "Aisha Carter", phone: "(214) 555-0119", email: "aisha.carter@example.com", modality: "Acupuncture", since: "2025", type: "patient", referral: "Dr. M. Reyes · Neurology", intake: true, consent: false, balance: 0, plan: "Migraine management. Weekly x4, then reassess frequency.", flags: ["Pregnant — 2nd trimester"] },
+    { id: "c3", name: "Aisha Carter", phone: "(214) 555-0119", email: "aisha.carter@example.com", modality: "Acupuncture", since: "2025", type: "patient", referral: "Dr. M. Reyes · Neurology", intake: true, consent: false, balance: 0, plan: "Migraine management. Weekly sessions, reassess frequency at re-evaluation.", flags: ["Pregnant — 2nd trimester"],
+      poc: { start: "2026-03-30", end: "2026-06-20", frequency: "Weekly for 12 weeks", visitsAuthorized: 12, visitsUsed: 10, lastProgressVisit: 10, goals: "Fewer than 2 migraine days a week. Neck tension under 3/10.", rules: { progressEvery: 10, reevalAtEnd: true, reevalLeadDays: 7 } } },
     { id: "c4", name: "Leon Whitfield", phone: "(972) 555-0177", email: "leon.whitfield@example.com", modality: "Swedish", since: "2023", type: "client", referral: null, intake: true, consent: true, balance: 0, plan: "General stress / sleep. Monthly relaxation.", flags: [] },
     { id: "c5", name: "Mina Okafor", phone: "(469) 555-0203", modality: "Deep Tissue", since: "2026", type: "client", referral: null, intake: false, consent: false, balance: 0, plan: "New client — intake pending.", flags: [] },
     { id: "c6", name: "Grant Whitman", phone: "(214) 555-0166", email: "grant.whitman@example.com", modality: "Sports", since: "2024", type: "client", referral: null, intake: true, consent: true, balance: 0, plan: "Marathon training block. Weekly lower-body.", flags: ["High blood pressure"] },
@@ -165,10 +168,28 @@ function reducer(state, action) {
         : state.appts;
       return { ...state, notes, appts };
     }
-    case "LOCK_NOTE":
-      return { ...state, notes: state.notes.map((n) => (n.id === action.id ? { ...n, locked: true, lockedAt: action.at } : n)) };
+    case "LOCK_NOTE": {
+      const note = state.notes.find((n) => n.id === action.id);
+      if (!note) return state;
+      // A note's first lock counts one visit against the client's plan of care.
+      // Progress notes and evaluations reset the progress-note count.
+      const first = !note.countedVisit;
+      const notes = state.notes.map((n) => (n.id === action.id ? { ...n, locked: true, lockedAt: action.at, countedVisit: true } : n));
+      const clients = !first ? state.clients : state.clients.map((c) => {
+        if (c.id !== note.clientId || !c.poc) return c;
+        const used = (c.poc.visitsUsed || 0) + 1;
+        const kind = note.kind || "daily";
+        return { ...c, poc: { ...c.poc, visitsUsed: used,
+          ...(RESETS_PROGRESS.has(kind) ? { lastProgressVisit: used } : {}),
+          ...(kind === "reeval" ? { reevalDoneAt: note.date || todayISO } : {}) } };
+      });
+      return { ...state, notes, clients };
+    }
     case "UNLOCK_NOTE":
-      return { ...state, notes: state.notes.map((n) => (n.id === action.id ? { ...n, locked: false, lockedAt: null } : n)) };
+      // Seeded and previously locked notes were already counted; relocking won't count them again.
+      return { ...state, notes: state.notes.map((n) => (n.id === action.id ? { ...n, locked: false, lockedAt: null, countedVisit: true } : n)) };
+    case "SET_POC":
+      return { ...state, clients: state.clients.map((c) => (c.id === action.id ? { ...c, poc: action.poc } : c)) };
     case "PAY_INVOICE":
       return { ...state, invoices: state.invoices.map((i) => (i.id === action.id ? { ...i, status: "paid", paidAt: action.at, tip: action.tip ?? i.tip } : i)) };
     case "SEND_MSG":
@@ -367,7 +388,7 @@ export default function App(props = {}) {
 
           <main className="content" id="main-content">
             {view !== 'today' && <div className="section-page-heading"><div className="eyebrow">{NAV.find(n => n.id === view)?.group}</div><h1>{title}</h1><p>{({ schedule: 'Make room for a well-planned day.', clients: 'Every client. Every detail. In one place.', soap: 'Thoughtful documentation for better continuity of care.', charting: 'A clearer picture of every assessment.', documents: 'Keep important records close at hand.', payments: 'A simple view of payments and balances.', invoicing: 'Keep your practice finances organized.', messages: 'Keep the conversation going.', reports: 'Understand how your practice is doing.', payroll: 'Take care of the people behind the care.', settings: 'Your practice, set up your way.', academy: 'Keep learning. Keep growing.', flows: 'A little guidance for the work ahead.', kiosk: 'Bring your workspace to the point of care.' })[view]}</p></div>}
-            {view === "today" && <Dashboard {...{ state, dispatch, prov, client, go, dueNotes, dueInvoices, setApptFocus, setNewAppt }} date={todayISO} />}
+            {view === "today" && <Dashboard {...{ state, dispatch, prov, client, go, dueNotes, dueInvoices, setApptFocus, setNewAppt }} date={todayISO} openClient={(id) => { go("clients"); setSelClient(id); }} />}
             {view === "schedule" && <Schedule {...{ state, dispatch, prov, client, setNewAppt, cal, setCal, apptFocus, clearApptFocus: () => setApptFocus(null) }} />}
             {view === "clients" && !selClient && <Clients {...{ state, dispatch, setSelClient }} />}
             {view === "clients" && selClient && <ClientDetail {...{ state, dispatch, prov, client, id: selClient, back: () => setSelClient(null), openNote: (n) => { setSelNote(n); setView("soap"); }, setNewAppt, openPay: setPayModal, go, setSelThread, setApptFocus, setChartFocus }} />}
@@ -643,7 +664,7 @@ function ApptDetail({ appt, dispatch, prov, client, onBack, onEdit }) {
           <Row k="Provider" v={`${p.name} · ${p.role}`} />
           <Row k="Room" v={a.room} />
           <Row k="Price" v={money0(a.price)} />
-          <Row k="Documentation" v={a.hasNote ? "SOAP note on file" : "No note yet"} last />
+          <Row k="Documentation" v={a.hasNote ? "SOAP note on file" : (() => { const s = pocStatus(c, todayISO); return s && s.recommended !== "daily" ? `${NOTE_KINDS[s.recommended]} due this visit` : "No note yet"; })()} last />
         </section>
         <section className="card pad">
           <div className="tiny" style={{ marginBottom: 10 }}>Client</div>
@@ -842,6 +863,98 @@ function Clients({ state, dispatch, setSelClient }) {
   );
 }
 
+/* ----------------------------- Plan of care ----------------------------- */
+function PocModal({ client: c, onClose, onSave }) {
+  const cur = c.poc;
+  const [f, setF] = useState(() => ({
+    start: cur?.start || todayISO, end: cur?.end || addDays(todayISO, 56), frequency: cur?.frequency || "2x/week for 8 weeks",
+    visitsAuthorized: cur?.visitsAuthorized ?? "", visitsUsed: cur?.visitsUsed ?? 0, goals: cur?.goals || "",
+    progressEvery: (cur?.rules?.progressEvery ?? DEFAULT_RULES.progressEvery), reevalAtEnd: cur?.rules?.reevalAtEnd ?? DEFAULT_RULES.reevalAtEnd,
+    reevalLeadDays: (cur?.rules?.reevalLeadDays ?? DEFAULT_RULES.reevalLeadDays),
+  }));
+  const up = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const valid = f.start && f.end && f.end > f.start;
+  const save = () => {
+    if (!valid) return;
+    const used = Math.max(0, Number(f.visitsUsed) || 0);
+    onSave({
+      ...(cur || {}), start: f.start, end: f.end, frequency: f.frequency.trim(), goals: f.goals.trim(),
+      visitsAuthorized: f.visitsAuthorized === "" ? null : Math.max(0, Number(f.visitsAuthorized) || 0), visitsUsed: used,
+      lastProgressVisit: Math.min(cur?.lastProgressVisit || 0, used),
+      // New dates start a fresh re-evaluation window.
+      reevalDoneAt: cur && cur.end === f.end ? cur.reevalDoneAt : null,
+      rules: { progressEvery: Math.max(0, Number(f.progressEvery) || 0), reevalAtEnd: !!f.reevalAtEnd, reevalLeadDays: Math.max(0, Number(f.reevalLeadDays) || 0) },
+    });
+  };
+  return (
+    <Modal title={cur ? "Edit plan of care" : "Start a plan of care"} onClose={onClose} footer={<>
+      <button className="btn" onClick={onClose}>Cancel</button>
+      <button className="btn pri" disabled={!valid} onClick={save}>{cur ? "Save plan of care" : "Start plan of care"}</button>
+    </>}>
+      <div className="poc-grid">
+        <div className="field"><label>Start date</label><input className="inp" type="date" value={f.start} onChange={(e) => up("start", e.target.value)} /></div>
+        <div className="field"><label>End date (re-evaluation)</label><input className="inp" type="date" value={f.end} onChange={(e) => up("end", e.target.value)} /></div>
+        <div className="field"><label>Frequency</label><input className="inp" value={f.frequency} onChange={(e) => up("frequency", e.target.value)} placeholder="e.g. 2x/week for 8 weeks" /></div>
+        <div className="field"><label>Authorized visits <span className="muted">(optional)</span></label><input className="inp" type="number" min="0" value={f.visitsAuthorized} onChange={(e) => up("visitsAuthorized", e.target.value)} /></div>
+        <div className="field"><label>Visits already completed</label><input className="inp" type="number" min="0" value={f.visitsUsed} onChange={(e) => up("visitsUsed", e.target.value)} /></div>
+      </div>
+      {!valid && f.end && f.start && <div className="muted" style={{ color: "var(--rose)", fontSize: 12.5, marginTop: 6 }}>The end date needs to be after the start date.</div>}
+      <div className="field" style={{ marginTop: 10 }}><label>Goals</label><textarea className="ta" style={{ minHeight: 70 }} value={f.goals} onChange={(e) => up("goals", e.target.value)} placeholder="Measurable goals for this plan of care" /></div>
+      <div className="tiny" style={{ margin: "16px 0 8px" }}>Documentation rules</div>
+      <div className="poc-rule">
+        <span>Progress note every</span>
+        <input className="inp" type="number" min="0" style={{ width: 72 }} value={f.progressEvery} onChange={(e) => up("progressEvery", e.target.value)} aria-label="Visits between progress notes" />
+        <span>visits <span className="muted">(0 turns it off)</span></span>
+      </div>
+      <label className="poc-rule" style={{ cursor: "pointer" }}>
+        <input type="checkbox" checked={f.reevalAtEnd} onChange={(e) => up("reevalAtEnd", e.target.checked)} />
+        <span>Remind me to re-evaluate</span>
+        <input className="inp" type="number" min="0" style={{ width: 72 }} disabled={!f.reevalAtEnd} value={f.reevalLeadDays} onChange={(e) => up("reevalLeadDays", e.target.value)} aria-label="Days before the end date" />
+        <span>days before the end date</span>
+      </label>
+    </Modal>
+  );
+}
+
+function PlanOfCareCard({ c, dispatch }) {
+  const [editing, setEditing] = useState(false);
+  const s = pocStatus(c, todayISO);
+  return (
+    <section className="card pad" data-testid="card-plan-of-care">
+      <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
+        <div className="tiny poc-head"><CalendarCheck size={12} />Plan of care</div>
+        {s && <button className="btn sm" style={{ marginLeft: "auto" }} onClick={() => setEditing(true)}><Pencil size={13} /> Edit</button>}
+      </div>
+      {!s ? (
+        <div className="empty" style={{ padding: "14px 0" }}>
+          No plan of care yet. Set the dates and your documentation rules, and the app tells you when a visit needs a progress note or re-evaluation.
+          <div style={{ marginTop: 10 }}><button className="btn pri sm" onClick={() => setEditing(true)}><Plus size={13} /> Start plan of care</button></div>
+        </div>
+      ) : (
+        <>
+          {(s.reevalDue || s.progressDue) && (
+            <div className={`poc-alert ${s.reevalOverdue ? "is-overdue" : ""}`} role="status">
+              <AlertTriangle size={15} />
+              <div><strong>{s.reevalDue ? (s.reevalOverdue ? "Re-evaluation overdue" : "Re-evaluation due") : `Progress note due at visit ${s.next}`}</strong><div>{s.reason}</div></div>
+            </div>
+          )}
+          <div className="statline"><span className="muted">Dates</span><span style={{ fontWeight: 600 }}>{fmtDay(s.poc.start)} – {fmtDay(s.poc.end)}</span></div>
+          <div className="statline"><span className="muted">Time left</span><span style={{ fontWeight: 600, color: s.daysLeft < 0 ? "var(--rose)" : "var(--ink)" }}>{s.daysLeft < 0 ? `Ended ${-s.daysLeft} day${s.daysLeft === -1 ? "" : "s"} ago` : `${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"}`}</span></div>
+          {s.poc.frequency && <div className="statline"><span className="muted">Frequency</span><span style={{ fontWeight: 600 }}>{s.poc.frequency}</span></div>}
+          <div className="statline"><span className="muted">Visits</span><span style={{ fontWeight: 600 }}>{s.used}{s.authorized ? ` of ${s.authorized} used` : " completed"}</span></div>
+          {s.authorized ? <div className="poc-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (s.used / s.authorized) * 100)}%` }} /></div> : null}
+          {s.every > 0 && <div className="statline"><span className="muted">Next progress note</span><span style={{ fontWeight: 600 }}>Visit {s.nextProgressAt}{s.progressDue ? " · due next visit" : ` · in ${s.nextProgressAt - s.used} visit${s.nextProgressAt - s.used === 1 ? "" : "s"}`}</span></div>}
+          {s.rules.reevalAtEnd && <div className="statline"><span className="muted">Re-evaluation</span><span style={{ fontWeight: 600 }}>{s.reevalDone ? `Done ${fmtDay(s.poc.reevalDoneAt)}` : `By ${fmtDay(s.poc.end)} · reminder from ${fmtDay(s.reminderFrom)}`}</span></div>}
+          {s.poc.goals && <div style={{ marginTop: 10 }}><div className="muted" style={{ fontSize: 12.5, marginBottom: 3 }}>Goals</div><div style={{ fontSize: 13.5, lineHeight: 1.55 }}>{s.poc.goals}</div></div>}
+          <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>Rules: {s.every > 0 ? `progress note every ${s.every} visits` : "no progress-note rule"}{s.rules.reevalAtEnd ? ` · re-evaluation reminder ${s.lead} days before the end date` : ""}</div>
+        </>
+      )}
+      {c.plan && <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}><div className="muted" style={{ fontSize: 12.5, marginBottom: 3 }}>Treatment plan</div><div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.plan}</div></div>}
+      {editing && <PocModal client={c} onClose={() => setEditing(false)} onSave={(poc) => { dispatch({ type: "SET_POC", id: c.id, poc }); setEditing(false); }} />}
+    </section>
+  );
+}
+
 function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNewAppt, openPay, go, setSelThread, setApptFocus, setChartFocus }) {
   const c = client(id);
   const [editing, setEditing] = useState(false);
@@ -894,10 +1007,7 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
             <div className="statline"><span className="muted">Consent on file</span>{c.consent ? <span className="pill done">Signed</span> : <span className="pill due">Needed</span>}</div>
             <div className="statline"><span className="muted">Account balance</span><span style={{ fontWeight: 600, color: c.balance ? "var(--rose)" : "var(--ink)" }}>{money(c.balance || 0)}</span></div>
           </section>
-          <section className="card pad">
-            <div className="tiny" style={{ marginBottom: 8 }}><FileText size={12} style={{ verticalAlign: -2, marginRight: 5 }} />Treatment plan</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.plan || <span className="muted">No plan on file yet.</span>}</div>
-          </section>
+          <PlanOfCareCard c={c} dispatch={dispatch} />
           <section className="card">
             <div className="sec-h"><h3>Appointments</h3><span className="tiny">{appts.length}</span></div>
             {appts.length === 0 ? <div className="empty">No appointments yet.</div> : appts.map((a) => (
@@ -941,7 +1051,7 @@ function ClientDetail({ state, dispatch, prov, client, id, back, openNote, setNe
           {notes.length === 0 ? <div className="empty">No notes yet for this client.</div> :
             notes.map((n) => (
               <div className="appt" key={n.id} style={{ cursor: "pointer" }} onClick={() => openNote(n)}>
-                <div className="meta"><div className="nm">{n.date} · {n.modality}</div><div className="det">{prov(n.providerId).name}</div></div>
+                <div className="meta"><div className="nm">{n.date} · {NOTE_KINDS[n.kind || "daily"]}</div><div className="det">{n.modality} · {prov(n.providerId).name}</div></div>
                 {n.locked ? <span className="pill locked"><Lock size={11} /> Locked</span> : <span className="pill draft">Draft</span>}
               </div>
             ))}
@@ -968,7 +1078,7 @@ function SoapList({ state, prov, client, open }) {
   const [creating, setCreating] = useState(false);
   const [nf, setNf] = useState({ clientId: state.clients[0].id, providerId: state.providers[0].id, modality: "Deep Tissue" });
   const needNote = state.appts.filter((a) => a.status === "done" && !state.notes.some((n) => n.apptId === a.id));
-  const drafts = needNote.map((a) => ({ id: "draft-" + a.id, apptId: a.id, clientId: a.clientId, providerId: a.providerId, date: todayISO, modality: a.svc, s: "", o: "", a: "", p: "", locked: false }));
+  const drafts = needNote.map((a) => ({ id: "draft-" + a.id, apptId: a.id, clientId: a.clientId, providerId: a.providerId, date: todayISO, modality: a.svc, kind: pocStatus(client(a.clientId), todayISO)?.recommended || "daily", s: "", o: "", a: "", p: "", locked: false }));
   const all = [...drafts, ...state.notes];
   const create = () => { open({ id: "n" + Date.now(), apptId: null, clientId: nf.clientId, providerId: nf.providerId, date: todayISO, modality: nf.modality, s: "", o: "", a: "", p: "", locked: false }); setCreating(false); };
   return (
@@ -981,6 +1091,7 @@ function SoapList({ state, prov, client, open }) {
         <DataTable rows={all} search searchPlaceholder="Search notes" onRowClick={open} defaultSort={{ key: "date", dir: "desc" }}
           filters={[
             { key: "status", label: "Status", options: [{ value: "locked", label: "Locked" }, { value: "draft", label: "Needs note" }], test: (n, v) => (v === "locked") === !!n.locked },
+            { key: "kind", label: "Type", options: Object.entries(NOTE_KINDS).map(([value, label]) => ({ value, label })), test: (n, v) => (n.kind || "daily") === v },
             { key: "prov", label: "Provider", options: state.providers.map((p) => ({ value: p.id, label: p.name })), test: (n, v) => n.providerId === v },
             { key: "modality", label: "Modality", options: [...new Set(all.map((n) => n.modality))].map((m) => ({ value: m, label: m })), test: (n, v) => n.modality === v },
           ]}
@@ -988,6 +1099,7 @@ function SoapList({ state, prov, client, open }) {
             { key: "date", label: "Date", align: "num" },
             { key: "client", label: "Client", sortVal: (n) => client(n.clientId).name, render: (n) => <span style={{ fontWeight: 600 }}>{client(n.clientId).name}</span> },
             { key: "provider", label: "Provider", sortVal: (n) => prov(n.providerId).name, render: (n) => prov(n.providerId).name },
+            { key: "kind", label: "Type", sortVal: (n) => NOTE_KINDS[n.kind || "daily"], render: (n) => (n.kind && n.kind !== "daily") ? <span className="pill due">{NOTE_KINDS[n.kind]}</span> : NOTE_KINDS.daily },
             { key: "modality", label: "Modality" },
             { key: "locked", label: "Status", sortVal: (n) => (n.locked ? 1 : 0), render: (n) => n.locked ? <span className="pill locked"><Lock size={11} /> Locked</span> : <span className="pill draft">Needs note</span> },
             { key: "go", label: "", sortable: false, render: () => <ChevronRight size={16} color="var(--muted-2)" /> },
@@ -1007,13 +1119,22 @@ const TEMPLATES = {
   default: { s: "Subjective — client's reported symptoms, pain level, goals for the session…", o: "Objective — palpation findings, range of motion, observable signs…", a: "Assessment — clinical impression and change since last visit…", p: "Plan — treatment delivered, home care, next-visit focus…" },
 };
 
+// Prompts for notes the plan of care asks for. Daily notes keep the modality templates.
+const KIND_TEMPLATES = {
+  progress: { s: "Patient-reported change since the last progress note: pain trend, function, goals reached…", o: "Re-measure against baseline: ROM, strength, special tests, outcome scores…", a: "Progress toward each plan-of-care goal, and whether skilled care is still needed…", p: "Continue or change the plan: frequency, interventions, updated goals…" },
+  reeval: { s: "Status at the end of the plan of care: symptoms, function, patient goals…", o: "Full re-assessment against the initial evaluation: ROM, strength, special tests, outcome scores…", a: "Goals met, partly met or not met. Prognosis and need for continued care…", p: "Discharge, or a new plan of care with dates, frequency and goals…" },
+  eval: { s: "History, chief complaint, mechanism of injury, prior level of function, patient goals…", o: "Baseline measures: posture, ROM, strength, palpation, special tests, outcome scores…", a: "Clinical impression, problem list, prognosis…", p: "Plan of care: frequency, duration, interventions and measurable goals…" },
+};
+
 function SoapEditor({ note, state, dispatch, prov, client, back }) {
   const c = client(note.clientId), p = prov(note.providerId);
-  const [draft, setDraft] = useState(() => ({ ...note, id: note.id.startsWith("draft-") ? "n" + Date.now() : note.id }));
+  const poc = pocStatus(c, todayISO);
+  // New notes start as whatever the plan of care says is due (progress note, re-evaluation or daily note).
+  const [draft, setDraft] = useState(() => ({ ...note, id: note.id.startsWith("draft-") ? "n" + Date.now() : note.id, kind: note.kind || (note.locked ? "daily" : (poc?.recommended || "daily")) }));
   const [saved, setSaved] = useState(true);
   const firstRun = useRef(true);
   const saveTimer = useRef(null);
-  const tmpl = TEMPLATES[draft.modality] || TEMPLATES.default;
+  const tmpl = KIND_TEMPLATES[draft.kind] || TEMPLATES[draft.modality] || TEMPLATES.default;
 
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
@@ -1055,8 +1176,8 @@ function SoapEditor({ note, state, dispatch, prov, client, back }) {
       <div className="card pad">
         <div className="row" style={{ marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <div>
-            <div className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{c.name} · {draft.modality}</div>
-            <div className="muted" style={{ fontSize: 13 }}>{p.name} · {draft.date}</div>
+            <div className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{c.name} · {NOTE_KINDS[draft.kind] || "Daily note"}</div>
+            <div className="muted" style={{ fontSize: 13 }}>{p.name} · {draft.date} · {draft.modality}</div>
           </div>
           <div className="spacer" />
           {draft.locked
@@ -1064,7 +1185,37 @@ function SoapEditor({ note, state, dispatch, prov, client, back }) {
             : (saved ? <span className="savechip"><CheckCircle2 size={14} /> Auto-saved</span> : <span className="savechip muted" style={{ color: "var(--muted)" }}><Clock size={14} /> Saving…</span>)}
         </div>
 
+        {poc && (
+          <div className="poc-strip" data-testid="note-poc-strip">
+            <span><CalendarCheck size={14} /><strong>Plan of care</strong> {fmtDay(poc.poc.start)} – {fmtDay(poc.poc.end)}</span>
+            <span>{poc.daysLeft < 0 ? `Ended ${-poc.daysLeft} days ago` : `${poc.daysLeft} days left`}</span>
+            {draft.locked
+              ? <span>{poc.used}{poc.authorized ? ` of ${poc.authorized}` : ""} visits used</span>
+              : <span><strong>This visit: {poc.next}</strong>{poc.authorized ? ` of ${poc.authorized}` : ""}</span>}
+            {poc.every > 0 && <span>Next progress note: visit {poc.nextProgressAt}</span>}
+            {poc.rules.reevalAtEnd && !poc.reevalDone && <span>Re-evaluate by {fmtDay(poc.poc.end)}</span>}
+          </div>
+        )}
+        {poc && !draft.locked && poc.reason && (
+          <div className={`poc-alert ${poc.reevalOverdue ? "is-overdue" : ""}`} role="status" data-testid="note-poc-alert">
+            <AlertTriangle size={15} />
+            <div style={{ flex: 1 }}><strong>{NOTE_KINDS[poc.recommended]} due this visit</strong><div>{poc.reason}</div></div>
+            {draft.kind !== poc.recommended && <button className="btn sm" onClick={() => set("kind", poc.recommended)}>Make this a {NOTE_KINDS[poc.recommended].toLowerCase()}</button>}
+          </div>
+        )}
+
         {c.flags.length > 0 && <div style={{ marginBottom: 14 }}>{c.flags.map((fl) => <span key={fl} className="pill cxl" style={{ marginRight: 6 }}><AlertTriangle size={11} /> {fl}</span>)}</div>}
+
+        <div className="field">
+          <label>Note type</label>
+          <div className="note-kind" role="group" aria-label="Note type">
+            {Object.entries(NOTE_KINDS).map(([k, label]) => (
+              <button type="button" key={k} aria-pressed={draft.kind === k} disabled={draft.locked} onClick={() => set("kind", k)} data-testid={`button-note-kind-${k}`}>
+                {label}{poc && !draft.locked && poc.recommended === k && k !== "daily" && <span className="rec">· due</span>}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {fields.map(([k, label]) => (
           <div className="field" key={k}>
