@@ -46,7 +46,7 @@ export const WALKTHROUGH_STEPS: Step[] = [
   {
     id: "clients", view: "clients", target: "[data-tour=nav-clients]", eyebrow: "Front office", title: "Clients: everyone you see, in one place",
     body: "Each person is a client (walk-in or self-referred) or a patient (referred by a doctor). Patients carry a referring physician, which shapes notes, documents and reports.",
-    howTo: ["Click New client and choose Client or Patient under Type.", "Open someone to see their appointments, notes, invoices and documents together.", "Book, message or invoice them from their page."],
+    howTo: ["Click New client and choose Client or Patient under Type.", "Open someone to see their appointments, notes, invoices and documents together. Rosa Delgado has a plan of care.", "Under Plan of care, set the dates and your rules: a progress note every 10 visits, a re-evaluation reminder before the end date."],
   },
   {
     id: "messages", view: "messages", target: "[data-tour=nav-messages]", eyebrow: "Front office", title: "Messages: clients and team",
@@ -56,7 +56,7 @@ export const WALKTHROUGH_STEPS: Step[] = [
   {
     id: "soap", view: "soap", target: "[data-tour=nav-soap]", eyebrow: "Clinical", title: "SOAP Notes: document every visit",
     body: "Completed visits without a finished note show up here as drafts.",
-    howTo: ["Open a draft, or click New note and choose the client.", "Fill in Subjective, Objective, Assessment and Plan.", "Click Lock note when it's final. A locked note can't change until you unlock it."],
+    howTo: ["Click New note and choose Rosa Delgado. Her plan of care says this visit needs a progress note, so the note starts as one.", "The strip at the top shows the plan dates, this visit's number and when the next progress note is due.", "Fill in Subjective, Objective, Assessment and Plan, then Lock note. Locking counts the visit toward the plan."],
   },
   {
     id: "charting", view: "charting", target: "[data-tour=nav-charting]", eyebrow: "Clinical", title: "Charting: map findings on the body",
